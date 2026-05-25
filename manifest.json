@@ -8,6 +8,14 @@
     "owner": "Buco7854",
     "versions": [
       {
+        "changelog": "**Full Changelog**: https://github.com/Buco7854/jellyfin-plugin-sso/compare/nightly...v4.0.0.5",
+        "checksum": "aa75ad0a6ef974449edff15942fb16fa",
+        "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/v4.0.0.5/sso-authentication_4.0.0.5.zip",
+        "targetAbi": "10.11.0.0",
+        "timestamp": "2026-05-25T03:02:26Z",
+        "version": "4.0.0.5"
+      },
+      {
         "changelog": "Nightly build\n",
         "checksum": "a23cddf013d68e8b02ba9bbcdb44fc09",
         "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/nightly/sso-authentication_0.0.0.9000.zip",
