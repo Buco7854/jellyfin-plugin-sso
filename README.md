@@ -22,7 +22,7 @@
 </a>
 </p>
 
-This is a community fork of [9p4/jellyfin-plugin-sso](https://github.com/9p4/jellyfin-plugin-sso), which was archived by the original author. Maintenance and new fixes continue here.
+This is a community fork of [9p4/jellyfin-plugin-sso](https://github.com/9p4/jellyfin-plugin-sso), which was archived by the original author. Maintenance and new fixes will continue here on a best-effort basis. While I may address some issues, this fork is primarily for my personal use, and I do not plan to maintain it to the same level as the original project.
 
 This plugin allows users to sign in through an SSO provider (such as Google, Microsoft, or your own provider). This enables one-click signin.
 
