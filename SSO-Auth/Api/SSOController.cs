@@ -330,6 +330,26 @@ public class SSOController : ControllerBase
 
             bool isLinking = timedState.IsLinking;
 
+            if (config.AdminRoles != null && config.AdminRoles.Length > 0)
+            {
+                if (timedState.Admin)
+                {
+                    _logger.LogInformation(
+                        "OpenID user {Username} matched configured admin roles {@AdminRoles}.",
+                        timedState.Username,
+                        config.AdminRoles);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "OpenID user {Username} did not match any configured admin role {@AdminRoles}. RoleClaim={RoleClaim}. Claims seen: {@Claims}. Note: matching is case-sensitive and exact-string.",
+                        timedState.Username,
+                        config.AdminRoles,
+                        config.RoleClaim,
+                        result.User.Claims.Select(o => new { o.Type, o.Value }));
+                }
+            }
+
             if (timedState.Valid)
             {
                 _logger.LogInformation($"Is request linking: {isLinking}");
@@ -535,7 +555,8 @@ public class SSOController : ControllerBase
                         kvp.Value.EnableLiveTvManagement,
                         response,
                         config.DefaultProvider?.Trim(),
-                        kvp.Value.AvatarURL)
+                        kvp.Value.AvatarURL,
+                        config.PreserveAdminPermissions)
                         .ConfigureAwait(false);
                     StateManager.Remove(kvp.Key);
                     return Ok(authenticationResult);
@@ -822,7 +843,8 @@ public class SSOController : ControllerBase
                 liveTvManagement,
                 response,
                 config.DefaultProvider?.Trim(),
-                null)
+                null,
+                config.PreserveAdminPermissions)
                 .ConfigureAwait(false);
             return Ok(authenticationResult);
         }
@@ -1182,12 +1204,36 @@ public class SSOController : ControllerBase
     /// <param name="authResponse">The client information to authenticate the user with.</param>
     /// <param name="defaultProvider">The default provider of the user to be set after logging in.</param>
     /// <param name="avatarUrl">The new avatar url for the user.</param>
-    private async Task<AuthenticationResult> Authenticate(Guid userId, bool isAdmin, bool enableAuthorization, bool enableAllFolders, string[] enabledFolders, bool enableLiveTv, bool enableLiveTvAdmin, AuthResponse authResponse, string defaultProvider, string avatarUrl)
+    /// <param name="preserveAdmin">When true, never demote an existing admin to a regular user; only ever elevate.</param>
+    private async Task<AuthenticationResult> Authenticate(Guid userId, bool isAdmin, bool enableAuthorization, bool enableAllFolders, string[] enabledFolders, bool enableLiveTv, bool enableLiveTvAdmin, AuthResponse authResponse, string defaultProvider, string avatarUrl, bool preserveAdmin)
     {
         User user = _userManager.GetUserById(userId);
         if (enableAuthorization)
         {
-            user.SetPermission(PermissionKind.IsAdministrator, isAdmin);
+            bool currentIsAdmin = user.HasPermission(PermissionKind.IsAdministrator);
+            if (isAdmin)
+            {
+                _logger.LogInformation("User {Username} matched an admin role; granting IsAdministrator.", user.Username);
+                user.SetPermission(PermissionKind.IsAdministrator, true);
+            }
+            else if (preserveAdmin && currentIsAdmin)
+            {
+                _logger.LogInformation(
+                    "User {Username} did not match an admin role in this login, but PreserveAdminPermissions is enabled and the user is already an admin; leaving IsAdministrator unchanged.",
+                    user.Username);
+            }
+            else
+            {
+                if (currentIsAdmin)
+                {
+                    _logger.LogWarning(
+                        "User {Username} did not match an admin role; revoking IsAdministrator. Disable EnableAuthorization or enable PreserveAdminPermissions to prevent this.",
+                        user.Username);
+                }
+
+                user.SetPermission(PermissionKind.IsAdministrator, false);
+            }
+
             user.SetPermission(PermissionKind.EnableAllFolders, enableAllFolders);
             if (!enableAllFolders)
             {

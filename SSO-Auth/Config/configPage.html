@@ -320,6 +320,32 @@
                   <label>
                     <input
                       is="emby-checkbox"
+                      id="PreserveAdminPermissions"
+                      name="PreserveAdminPermissions"
+                      type="checkbox"
+                      class="sso-toggle"
+                      checked
+                    />
+                    <span>Preserve Existing Admin Permissions</span>
+                  </label>
+                  <div class="fieldDescription checkboxFieldDescription">
+                    When enabled (recommended), the plugin will only ever
+                    <strong>elevate</strong> users to administrator based on
+                    roles; it will <strong>never revoke</strong> the
+                    administrator flag from an account that already has it.
+                    <br />
+                    Disable this only if you want OIDC to be the strict source
+                    of truth for admin status (which can lock you out if the
+                    IDP claim is briefly missing or mis-parsed).
+                  </div>
+                </div>
+
+                <div
+                  class="checkboxContainer checkboxContainer-withDescription"
+                >
+                  <label>
+                    <input
+                      is="emby-checkbox"
                       id="EnableFolderRoles"
                       name="EnableFolderRoles"
                       type="checkbox"
