@@ -82,7 +82,7 @@ export async function serverAddress({ basePath = "/web" }) {
 
 // TODO: Refactor duplicated code
 // ! Duplicated at
-// https://github.com/9p4/jellyfin-plugin-sso/blob/38558d762a13422862240af4060bdd1bb1618d57/SSO-Auth/WebResponse.cs#L363-L401
+// https://github.com/Buco7854/jellyfin-plugin-sso/blob/38558d762a13422862240af4060bdd1bb1618d57/SSO-Auth/WebResponse.cs#L363-L401
 function getDeviceName() {
   return "DUMMY";
 }

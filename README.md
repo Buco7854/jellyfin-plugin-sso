@@ -2,27 +2,27 @@
 
 <p align="center">
 
-<img alt="Logo" src="https://raw.githubusercontent.com/9p4/jellyfin-plugin-sso/main/img/logo.png"/>
+<img alt="Logo" src="https://raw.githubusercontent.com/Buco7854/jellyfin-plugin-sso/main/img/logo.png"/>
 <br/>
 <br/>
-<a href="https://github.com/9p4/jellyfin-plugin-sso">
-<img alt="GPL 3.0 License" src="https://img.shields.io/github/license/9p4/jellyfin-plugin-sso.svg"/>
+<a href="https://github.com/Buco7854/jellyfin-plugin-sso">
+<img alt="GPL 3.0 License" src="https://img.shields.io/github/license/Buco7854/jellyfin-plugin-sso.svg"/>
 </a>
-<a href="https://github.com/9p4/jellyfin-plugin-sso/actions/workflows/dotnet.yml">
-<img alt="GitHub Actions Build Status" src="https://github.com/9p4/jellyfin-plugin-sso/actions/workflows/dotnet.yml/badge.svg"/>
+<a href="https://github.com/Buco7854/jellyfin-plugin-sso/actions/workflows/dotnet.yml">
+<img alt="GitHub Actions Build Status" src="https://github.com/Buco7854/jellyfin-plugin-sso/actions/workflows/dotnet.yml/badge.svg"/>
 </a>
-<a href="https://github.com/9p4/jellyfin-plugin-sso/releases">
-<img alt="Current Release" src="https://img.shields.io/github/release/9p4/jellyfin-plugin-sso.svg"/>
+<a href="https://github.com/Buco7854/jellyfin-plugin-sso/releases">
+<img alt="Current Release" src="https://img.shields.io/github/release/Buco7854/jellyfin-plugin-sso.svg"/>
 </a>
-<a href="https://github.com/9p4/jellyfin-plugin-sso/releases.atom">
+<a href="https://github.com/Buco7854/jellyfin-plugin-sso/releases.atom">
 <img alt="Release RSS Feed" src="https://img.shields.io/badge/rss-releases-ffa500?logo=rss" />
 </a>
-<a href="https://github.com/9p4/jellyfin-plugin-sso/commits/main.atom">
+<a href="https://github.com/Buco7854/jellyfin-plugin-sso/commits/main.atom">
 <img alt="Main Commits RSS Feed" src="https://img.shields.io/badge/rss-commits-ffa500?logo=rss" />
 </a>
 </p>
 
-Project archived because I'm tired of working on this after all the years.
+This is a community fork of [9p4/jellyfin-plugin-sso](https://github.com/9p4/jellyfin-plugin-sso), which was archived by the original author. Maintenance and new fixes continue here.
 
 This plugin allows users to sign in through an SSO provider (such as Google, Microsoft, or your own provider). This enables one-click signin.
 
@@ -34,9 +34,9 @@ Existing users may link new SSO accounts, or remove existing links using self-se
 
 This is 100% alpha software! PRs are welcome to improve the code.
 
-~~There is NO admin configuration! You must use the API to configure the program!~~ Added by [strazto](https://github.com/strazto) in PR [#18](https://github.com/9p4/jellyfin-plugin-sso/pull/18) and [#27](https://github.com/9p4/jellyfin-plugin-sso/pull/27).
+~~There is NO admin configuration! You must use the API to configure the program!~~ Added by [strazto](https://github.com/strazto) in PR [#18](https://github.com/Buco7854/jellyfin-plugin-sso/pull/18) and [#27](https://github.com/Buco7854/jellyfin-plugin-sso/pull/27).
 
-**[This is for Jellyfin >=10.8](https://github.com/9p4/jellyfin-plugin-sso/issues/3) and only on the Web UI or clients supporting [Quick Connect](https://jellyfin.org/docs/general/server/quick-connect)**
+**[This is for Jellyfin >=10.8](https://github.com/Buco7854/jellyfin-plugin-sso/issues/3) and only on the Web UI or clients supporting [Quick Connect](https://jellyfin.org/docs/general/server/quick-connect)**
 
 **This README reflects the branch it is currently on! Switch tags to view version-specific documentation!**
 
@@ -63,7 +63,7 @@ This is my first time writing C# so please take all of the code written here wit
 
 ## Installing
 
-Add the package repo [https://raw.githubusercontent.com/9p4/jellyfin-plugin-sso/manifest-release/manifest.json](https://raw.githubusercontent.com/9p4/jellyfin-plugin-sso/manifest-release/manifest.json) to your Jellyfin plugin repositories.
+Add the package repo [https://raw.githubusercontent.com/Buco7854/jellyfin-plugin-sso/manifest-release/manifest.json](https://raw.githubusercontent.com/Buco7854/jellyfin-plugin-sso/manifest-release/manifest.json) to your Jellyfin plugin repositories.
 
 Then, install the plugin from the plugin catalog!
 
@@ -80,7 +80,7 @@ Instead add the **old** package repository: [https://repo.ersei.net/jellyfin/man
 
 If you're impatient/brave/feel like helping us test things out, you can install the nightly build of the plugin, which is automatically built against the main branch.
 
-The nightly build can be installed from the [main plugin repo](https://raw.githubusercontent.com/9p4/jellyfin-plugin-sso/manifest-release/manifest.json), and will always have a version number of `0.0.0.9000`.
+The nightly build can be installed from the [main plugin repo](https://raw.githubusercontent.com/Buco7854/jellyfin-plugin-sso/manifest-release/manifest.json), and will always have a version number of `0.0.0.9000`.
 
 The nightly build may have new features unavailable in other builds, but **be warned**, things may change frequently in nightly builds, and things may break, and you could lose data.
 
@@ -122,7 +122,7 @@ a.raised.emby-button {
 
 ![screenshot of the configuration page with the same code](img/custom-button.png)
 
-For more information, refer to [issue #16](https://github.com/9p4/jellyfin-plugin-sso/issues/16).
+For more information, refer to [issue #16](https://github.com/Buco7854/jellyfin-plugin-sso/issues/16).
 
 ### SAML
 
@@ -237,7 +237,7 @@ These all require authorization. Append an API key to the end of the request: `c
   - `enableLiveTvManagement`: boolean. Whether to allow Live TV management by default. This applies even if `enableLiveTvRoles` is enabled.
   - `roleClaim`: string. This is the value in the OpenID response to check for roles. For Keycloak, it is `realm_access.roles` by default. The first element is the claim type, the subsequent values are to parse the JSON of the claim value. Use a "\\." to denote a literal ".". This expects a list of strings from the OIDC server.
   - `oidScopes` : array of strings. Each contains an additional scope name to include in the OIDC request.
-    - For some OIDC providers (For example, [authelia](https://github.com/9p4/jellyfin-plugin-sso/issues/23#issuecomment-1112237616)), additional scopes may be required in order to validate group membership in role claim.
+    - For some OIDC providers (For example, [authelia](https://github.com/Buco7854/jellyfin-plugin-sso/issues/23#issuecomment-1112237616)), additional scopes may be required in order to validate group membership in role claim.
     - Leave empty to only request the default scopes.
   - `defaultProvider`: string. The set provider then gets assigned to the user after they have logged in. If it is not set, nothing is changed. With this, a user can login with SSO but is still able to log in via other providers later. See the `Unregister` endpoint.
   - `defaultUsernameClaim`: string. The provider will use the claim to create the users' usernames. If not set, it fallbacks to `preferred_username`.
@@ -260,13 +260,13 @@ Logging in with an SSO account that has the same username as an existing Jellyfi
 
 ~~There is no GUI to sign in. You have to make it yourself! The buttons should redirect to something like this: [https://myjellyfin.example.com/sso/SAML/start/clientid](https://myjellyfin.example.com/sso/SAML/start/clientid) replacing `clientid` with the provider client ID and `SAML` with the auth scheme (either `SAML` or `OID`).~~
 
-~~Furthermore, there is no functional admin page (yet). PRs for this are welcome. In the meantime, you have to interact with the API to add or remove configurations.~~ Added by [strazto](https://github.com/strazto) in PR [#18](https://github.com/9p4/jellyfin-plugin-sso/pull/18) and [#27](https://github.com/9p4/jellyfin-plugin-sso/pull/27).
+~~Furthermore, there is no functional admin page (yet). PRs for this are welcome. In the meantime, you have to interact with the API to add or remove configurations.~~ Added by [strazto](https://github.com/strazto) in PR [#18](https://github.com/Buco7854/jellyfin-plugin-sso/pull/18) and [#27](https://github.com/Buco7854/jellyfin-plugin-sso/pull/27).
 
 There is also no logout callback. Logging out of Jellyfin will log you out of Jellyfin only, instead of the SSO provider as well.
 
-~~This only supports Jellyfin on its own domain (for now). This is because I'm using string concatenation for generating some URLs. A PR is welcome to patch this.~~ Fixed in [PR #1](https://github.com/9p4/jellyfin-plugin-sso/pull/1).
+~~This only supports Jellyfin on its own domain (for now). This is because I'm using string concatenation for generating some URLs. A PR is welcome to patch this.~~ Fixed in [PR #1](https://github.com/Buco7854/jellyfin-plugin-sso/pull/1).
 
-**This only works on the web UI**. ~~The user must open the Jellyfin web UI BEFORE using the SSO program to populate some values in the localStorage.~~ Fixed by implementing a comment by [Pfuenzle](https://github.com/Pfuenzle) in [Issue #5](https://github.com/9p4/jellyfin-plugin-sso/issues/5#issuecomment-1041864820).
+**This only works on the web UI**. ~~The user must open the Jellyfin web UI BEFORE using the SSO program to populate some values in the localStorage.~~ Fixed by implementing a comment by [Pfuenzle](https://github.com/Pfuenzle) in [Issue #5](https://github.com/Buco7854/jellyfin-plugin-sso/issues/5#issuecomment-1041864820).
 
 # Contributing
 
@@ -304,7 +304,7 @@ Anything tagged/released as a formal Github release will also be built and publi
 
 If you wish to use releases from your own fork, refer to
 [Installing](#installing), however, you will need to change the url to the
-manifest file, `https://raw.githubusercontent.com/9p4/jellyfin-plugin-sso/manifest-release/manifest.json`
+manifest file, `https://raw.githubusercontent.com/Buco7854/jellyfin-plugin-sso/manifest-release/manifest.json`
 so that it refers to your fork.
 
 ## Credits and Thanks
