@@ -80,11 +80,10 @@ public class SamlConfig
     public string[] AdminRoles { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether existing admin permissions are preserved if the
-    /// admin role is not present (or fails to parse) in the SAML response. When true, the plugin
-    /// only ever ELEVATES users to admin via roles; it never demotes them. Defaults to true.
+    /// Gets or sets a value indicating whether existing admin permissions are preserved when no
+    /// admin role matches. When false (default), admin status is synced strictly from roles.
     /// </summary>
-    public bool PreserveAdminPermissions { get; set; } = true;
+    public bool PreserveAdminPermissions { get; set; }
 
     /// <summary>
     /// Gets or sets what roles are checked to determine whether the user is allowed to use Jellyfin.
@@ -216,11 +215,10 @@ public class OidConfig
     public string[] AdminRoles { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether existing admin permissions are preserved if the
-    /// admin role is not present (or fails to parse) in the OpenID response. When true, the plugin
-    /// only ever ELEVATES users to admin via roles; it never demotes them. Defaults to true.
+    /// Gets or sets a value indicating whether existing admin permissions are preserved when no
+    /// admin role matches. When false (default), admin status is synced strictly from roles.
     /// </summary>
-    public bool PreserveAdminPermissions { get; set; } = true;
+    public bool PreserveAdminPermissions { get; set; }
 
     /// <summary>
     /// Gets or sets what roles are checked to determine whether the user is allowed to use Jellyfin.
