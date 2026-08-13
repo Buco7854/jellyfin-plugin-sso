@@ -424,9 +424,7 @@ const sleep = (milliseconds) => {
         var punycodeBaseUrl = protocol + punycodeDomain;
 
         return Base + @"
-async function link(request) {
-    const jfCredentialsString = localStorage.getItem(""jellyfin_credentials"");
-
+async function link(request, jfCredentialsString) {
     if (jfCredentialsString == null) return;
 
     const jfCredentials = JSON.parse(jfCredentialsString);
@@ -460,6 +458,11 @@ async function link(request) {
 }
 
 async function main() {
+    // Captured before it's wiped below: link() needs the currently signed-in
+    // user's token to authorize the link request, which is destroyed by the
+    // localStorage reset done here to work around Safari's aggressive caching.
+    const previousJfCredentialsString = localStorage.getItem('jellyfin_credentials');
+
     localStorage.removeItem('jellyfin_credentials');
     document.getElementById('iframe-main').src = '" + punycodeBaseUrl + @"/web/index.html';
 
@@ -477,7 +480,7 @@ async function main() {
 
     var request = {deviceId, appName, appVersion, deviceName, data};
 
-    if (" + $"{isLinking}".ToLower() + @") await link(request);
+    if (" + $"{isLinking}".ToLower() + @") await link(request, previousJfCredentialsString);
 
     var url = '" + punycodeBaseUrl + "/sso/" + mode + "/Auth/" + provider + @"';
 
