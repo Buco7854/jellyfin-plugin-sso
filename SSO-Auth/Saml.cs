@@ -8,6 +8,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography.X509Certificates;
@@ -111,6 +112,50 @@ public class Response
         return ValidateSignatureReference(signedXml) && signedXml.CheckSignature(_certificate, true) && !IsExpired();
     }
 
+    /// <summary>
+    /// Checks whether the response corresponds to a specific authentication request.
+    /// </summary>
+    /// <param name="requestId">The ID of the authentication request.</param>
+    /// <param name="recipient">The assertion consumer service URL.</param>
+    /// <returns>Whether the response references the authentication request.</returns>
+    public bool IsResponseTo(string requestId, string recipient)
+    {
+        if (string.IsNullOrEmpty(requestId) || string.IsNullOrEmpty(recipient))
+        {
+            return false;
+        }
+
+        var responseNode = _xmlDoc.DocumentElement;
+        if (responseNode is null
+            || !string.Equals(responseNode.GetAttribute("InResponseTo"), requestId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var confirmationNodes = _xmlDoc.SelectNodes(
+            "/samlp:Response/saml:Assertion[1]/saml:Subject/saml:SubjectConfirmation[@Method='urn:oasis:names:tc:SAML:2.0:cm:bearer']/saml:SubjectConfirmationData",
+            _xmlNameSpaceManager);
+
+        foreach (XmlNode confirmationNode in confirmationNodes)
+        {
+            string notOnOrAfter = confirmationNode.Attributes?["NotOnOrAfter"]?.Value;
+            if (string.Equals(confirmationNode.Attributes?["InResponseTo"]?.Value, requestId, StringComparison.Ordinal)
+                && string.Equals(confirmationNode.Attributes?["Recipient"]?.Value, recipient, StringComparison.Ordinal)
+                && confirmationNode.Attributes?["NotBefore"] is null
+                && DateTimeOffset.TryParse(
+                    notOnOrAfter,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out var expiration)
+                && expiration > DateTimeOffset.UtcNow)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // an XML signature can "cover" not the whole document, but only a part of it
     // .NET's built in "CheckSignature" does not cover this case, it will validate to true.
     // We should check the signature reference, so it "references" the id of the root document element! If not - it's a hack
@@ -161,7 +206,7 @@ public class Response
     public string GetNameID()
     {
         var node = _xmlDoc.SelectSingleNode("/samlp:Response/saml:Assertion[1]/saml:Subject/saml:NameID", _xmlNameSpaceManager);
-        return node.InnerText;
+        return node?.InnerText;
     }
 
     /// <summary>
@@ -331,6 +376,11 @@ public class AuthRequest
         /// </summary>
         Base64 = 1
     }
+
+    /// <summary>
+    /// Gets the unique identifier of the request.
+    /// </summary>
+    public string Id => _id;
 
     /// <summary>
     /// Gets the SAML request.

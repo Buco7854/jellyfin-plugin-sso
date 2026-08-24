@@ -1,0 +1,223 @@
+.sso-linking-document {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.sso-linking-page .content-primary {
+  box-sizing: border-box;
+  width: min(100%, 54rem);
+  margin: 0 auto;
+  padding: clamp(1rem, 4vw, 2.5rem) !important;
+}
+
+.sso-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.sso-page-header .sectionTitle {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.sso-page-header .headerHelpButton {
+  margin-left: auto !important;
+}
+
+.sso-home-button {
+  gap: 0.45rem;
+}
+
+.sso-home-button[hidden] {
+  display: none !important;
+}
+
+.sso-page-intro {
+  max-width: 48rem;
+  margin-bottom: 2rem;
+  line-height: 1.55;
+}
+
+.sso-page-intro p {
+  margin: 0 0 0.75rem;
+}
+
+.sso-linking-page .verticalSection {
+  margin-top: 2.25rem;
+}
+
+.sso-linking-page .verticalSection > .sectionTitle {
+  margin: 0 0 1rem;
+  font-size: 1.45rem;
+}
+
+.sso-provider-group {
+  margin-top: 1.5rem;
+}
+
+.sso-provider-group > h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.sso-provider-group .paperList {
+  overflow: hidden;
+  border-radius: 0.25rem;
+}
+
+.sso-provider-links-container {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+}
+
+.sso-provider-links-container + .sso-provider-links-container {
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.sso-provider-link-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.sso-provider-add-link {
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  margin: 0;
+  padding: 0.65em 0.85em;
+  justify-content: center;
+}
+
+.sso-action-icon {
+  font-size: 1.2em;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.sso-provider-existing-links-container {
+  grid-column: 1 / -1;
+}
+
+.sso-provider-existing-links-container:empty {
+  display: none;
+}
+
+.sso-linked-label {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.sso-provider-link-checkbox-wrapper,
+.sso-delete-enable {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+
+.checkbox-wrapper [type="checkbox"] {
+  position: static;
+  flex: 0 0 1.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0.1rem 0 0;
+  accent-color: #00a4dc;
+  appearance: auto;
+}
+
+.checkbox-wrapper .checkbox-label {
+  display: inline;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.checkbox-wrapper .checkbox-label::before,
+.checkbox-wrapper .checkbox-label::after {
+  display: none;
+}
+
+.sso-provider-link-checkbox-wrapper {
+  padding: 0.25rem 0;
+}
+
+.sso-delete-section .fieldDescription {
+  margin-bottom: 1rem;
+}
+
+.sso-delete-enable {
+  margin-bottom: 1rem;
+}
+
+.sso-delete-section .button-delete {
+  margin: 0;
+}
+
+.sso-status {
+  min-height: 1.35em;
+  margin: 0.75rem 0 0;
+  line-height: 1.45;
+}
+
+.paperList > .sso-status {
+  margin: 0;
+  padding: 0.9rem 1rem;
+}
+
+.sso-status-error {
+  font-weight: 700;
+}
+
+.sso-page-footer {
+  margin-top: 2.5rem;
+  line-height: 1.6;
+}
+
+.sso-page-footer a,
+.sso-page-footer a:visited {
+  color: #00a4dc;
+}
+
+.sso-page-footer a:hover {
+  color: #00c7ff;
+}
+
+.sso-linking-page a:focus-visible,
+.sso-linking-page button:focus-visible,
+.sso-linking-page input:focus-visible {
+  outline: 3px solid currentColor !important;
+  outline-offset: 3px;
+}
+
+.sso-linking-page [aria-busy="true"] {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+@media (max-width: 36rem) {
+  .sso-page-header .sectionTitle {
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  .sso-page-header .headerHelpButton {
+    margin-left: 0 !important;
+  }
+
+  .sso-provider-links-container {
+    padding-inline: 0.85rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .sso-provider-links-container + .sso-provider-links-container {
+    border-color: CanvasText;
+  }
+}
