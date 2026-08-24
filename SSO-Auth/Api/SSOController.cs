@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -39,6 +40,7 @@ namespace Jellyfin.Plugin.SSO_Auth.Api;
 [Route("[controller]")]
 public class SSOController : ControllerBase
 {
+    private const string SamlLinkStatePrefix = "link:";
     private readonly IUserManager _userManager;
     private readonly ISessionManager _sessionManager;
     private readonly IAuthorizationContext _authContext;
@@ -48,7 +50,9 @@ public class SSOController : ControllerBase
     private readonly IProviderManager _providerManager;
     private readonly IServerConfigurationManager _serverConfigurationManager;
     private readonly IHttpClientFactory _httpClientFactory;
-    private static readonly IDictionary<string, TimedAuthorizeState> StateManager = new Dictionary<string, TimedAuthorizeState>();
+    private static readonly TimeSpan AuthorizationStateLifetime = TimeSpan.FromMinutes(10);
+    private static readonly ConcurrentDictionary<string, TimedAuthorizeState> StateManager = new();
+    private static readonly ConcurrentDictionary<string, TimedSamlLinkState> SamlLinkStateManager = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SSOController"/> class.
@@ -120,6 +124,22 @@ public class SSOController : ControllerBase
                 return BadRequest("Invalid or expired state");
             }
 
+            if (IsAuthorizationStateExpired(timedState.Created))
+            {
+                StateManager.TryRemove(state, out _);
+                return BadRequest("Invalid or expired state");
+            }
+
+            if (!string.Equals(timedState.Provider, provider, StringComparison.Ordinal))
+            {
+                return BadRequest("The authorization state belongs to a different provider.");
+            }
+
+            if (timedState.IsLinking && !StateManager.TryRemove(state, out timedState))
+            {
+                return BadRequest("Invalid or expired state");
+            }
+
             var scopes = config.OidScopes == null ? new string[2] : config.OidScopes;
             var options = new OidcClientOptions
             {
@@ -152,6 +172,7 @@ public class SSOController : ControllerBase
 
             if (result.IsError)
             {
+                StateManager.TryRemove(state, out _);
                 return ReturnError(StatusCodes.Status400BadRequest, $"Error logging in: {result.Error} - {result.ErrorDescription}");
             }
 
@@ -330,6 +351,12 @@ public class SSOController : ControllerBase
 
             bool isLinking = timedState.IsLinking;
 
+            if (timedState.Valid && string.IsNullOrWhiteSpace(timedState.Username))
+            {
+                StateManager.TryRemove(state, out _);
+                return BadRequest("The OpenID provider did not return a usable user identifier.");
+            }
+
             if (config.AdminRoles != null && config.AdminRoles.Length > 0)
             {
                 if (timedState.Admin)
@@ -352,11 +379,31 @@ public class SSOController : ControllerBase
 
             if (timedState.Valid)
             {
+                if (isLinking)
+                {
+                    if (!timedState.LinkingUserId.HasValue)
+                    {
+                        StateManager.TryRemove(state, out _);
+                        return BadRequest("The linking transaction is not associated with a Jellyfin user.");
+                    }
+
+                    var linkResult = CreateCanonicalLink("oid", provider, timedState.LinkingUserId.Value, timedState.Username);
+                    if (linkResult is not NoContentResult)
+                    {
+                        StateManager.TryRemove(state, out _);
+                        return linkResult;
+                    }
+
+                    StateManager.TryRemove(state, out _);
+                    return Redirect(GetRequestBase(config.SchemeOverride, config.PortOverride) + "/SSOViews/linking");
+                }
+
                 _logger.LogInformation($"Is request linking: {isLinking}");
-                return Content(WebResponse.Generator(data: state, provider: provider, baseUrl: GetRequestBase(config.SchemeOverride, config.PortOverride), mode: "OID", isLinking: isLinking), MediaTypeNames.Text.Html);
+                return Content(WebResponse.Generator(data: state, provider: provider, baseUrl: GetRequestBase(config.SchemeOverride, config.PortOverride), mode: "OID"), MediaTypeNames.Text.Html);
             }
             else
             {
+                StateManager.TryRemove(state, out _);
                 _logger.LogWarning(
                     "OpenID user {Username} has one or more incorrect role claims: {@Claims}. Expected any one of: {@ExpectedClaims}",
                     timedState.Username,
@@ -380,6 +427,41 @@ public class SSOController : ControllerBase
     [HttpGet("OID/p/{provider}")]
     [HttpGet("OID/start/{provider}")]
     public async Task<ActionResult> OidChallenge(string provider, [FromQuery] bool isLinking = false)
+    {
+        if (isLinking)
+        {
+            return BadRequest("Linking must be started from the authenticated SSO linking page.");
+        }
+
+        return await StartOidChallenge(provider, false, null, false).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Starts an OpenID account-linking flow for the authenticated Jellyfin user.
+    /// </summary>
+    /// <param name="provider">The name of the provider.</param>
+    /// <returns>The identity provider URL to navigate to.</returns>
+    [Authorize]
+    [HttpPost("OID/StartLink/{provider}")]
+    [Produces(MediaTypeNames.Text.Plain)]
+    public async Task<ActionResult> OidLinkChallenge(string provider)
+    {
+        var authorization = await _authContext.GetAuthorizationInfo(HttpContext.Request).ConfigureAwait(false);
+        if (!authorization.IsAuthenticated || authorization.User is null)
+        {
+            return Unauthorized();
+        }
+
+        Guid jellyfinUserId = authorization.UserId;
+        if (!await RequestHelpers.AssertCanUpdateUser(_authContext, HttpContext.Request, jellyfinUserId, true).ConfigureAwait(false))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, "User is not allowed to link SSO providers.");
+        }
+
+        return await StartOidChallenge(provider, true, jellyfinUserId, true).ConfigureAwait(false);
+    }
+
+    private async Task<ActionResult> StartOidChallenge(string provider, bool isLinking, Guid? linkingUserId, bool returnStartUrl)
     {
         Invalidate();
         OidConfig config;
@@ -437,10 +519,23 @@ public class SSOController : ControllerBase
                 return ReturnError(StatusCodes.Status400BadRequest, $"Error preparing login: {state.Error} - {state.ErrorDescription}");
             }
 
-            StateManager.Add(state.State, new TimedAuthorizeState(state, DateTime.Now));
+            var timedState = new TimedAuthorizeState(state, DateTime.UtcNow)
+            {
+                IsLinking = isLinking,
+                LinkingUserId = linkingUserId,
+                Provider = provider
+            };
 
-            // Track whether this is a linking request or not.
-            StateManager[state.State].IsLinking = isLinking;
+            if (!StateManager.TryAdd(state.State, timedState))
+            {
+                return StatusCode(StatusCodes.Status409Conflict, "An authorization flow with the same state already exists.");
+            }
+
+            if (returnStartUrl)
+            {
+                return Content(state.StartUrl, MediaTypeNames.Text.Plain);
+            }
+
             return Redirect(state.StartUrl);
         }
 
@@ -537,34 +632,33 @@ public class SSOController : ControllerBase
             return BadRequest("No matching provider found");
         }
 
-        if (config.Enabled)
+        if (config.Enabled
+            && !string.IsNullOrEmpty(response.Data)
+            && StateManager.TryGetValue(response.Data, out var pendingState)
+            && pendingState.Valid
+            && !IsAuthorizationStateExpired(pendingState.Created)
+            && string.Equals(pendingState.Provider, provider, StringComparison.Ordinal)
+            && StateManager.TryRemove(response.Data, out var timedState))
         {
-            foreach (var kvp in StateManager)
-            {
-                if (kvp.Value.State.State.Equals(response.Data) && kvp.Value.Valid)
-                {
-                    Guid userId = await CreateCanonicalLinkAndUserIfNotExist("oid", provider, kvp.Value.Username);
+            Guid userId = await CreateCanonicalLinkAndUserIfNotExist("oid", provider, timedState.Username);
 
-                    var authenticationResult = await Authenticate(
-                        userId,
-                        kvp.Value.Admin,
-                        config.EnableAuthorization,
-                        config.EnableAllFolders,
-                        kvp.Value.Folders.ToArray(),
-                        kvp.Value.EnableLiveTv,
-                        kvp.Value.EnableLiveTvManagement,
-                        response,
-                        config.DefaultProvider?.Trim(),
-                        kvp.Value.AvatarURL,
-                        config.PreserveAdminPermissions)
-                        .ConfigureAwait(false);
-                    StateManager.Remove(kvp.Key);
-                    return Ok(authenticationResult);
-                }
-            }
+            var authenticationResult = await Authenticate(
+                userId,
+                timedState.Admin,
+                config.EnableAuthorization,
+                config.EnableAllFolders,
+                timedState.Folders.ToArray(),
+                timedState.EnableLiveTv,
+                timedState.EnableLiveTvManagement,
+                response,
+                config.DefaultProvider?.Trim(),
+                timedState.AvatarURL,
+                config.PreserveAdminPermissions)
+                .ConfigureAwait(false);
+            return Ok(authenticationResult);
         }
 
-        return Problem("Something went wrong");
+        return BadRequest("Invalid or expired authorization state.");
     }
 
     /// <summary>
@@ -572,14 +666,19 @@ public class SSOController : ControllerBase
     /// </summary>
     /// <param name="provider">The provider that is calling back.</param>
     /// <param name="relayState">
-    ///    RelayState given in the original saml request. If it is equal to "linking",
-    ///    We consider this to be a linking request.
+    ///    RelayState given in the original SAML request. Authenticated linking flows use
+    ///    a random, single-use value that identifies their server-side transaction.
     /// </param>
     /// <returns>A webpage that will complete the client-side flow.</returns>
     [HttpPost("SAML/p/{provider}")]
     [HttpPost("SAML/post/{provider}")]
     public ActionResult SamlPost(string provider, [FromQuery] string relayState = null)
     {
+        if (string.IsNullOrEmpty(relayState) && Request.HasFormContentType)
+        {
+            relayState = Request.Form["RelayState"].FirstOrDefault();
+        }
+
         SamlConfig config;
         try
         {
@@ -590,10 +689,24 @@ public class SSOController : ControllerBase
             return BadRequest("No matching provider found");
         }
 
-        bool isLinking = relayState == "linking";
+        if (string.Equals(relayState, "linking", StringComparison.Ordinal))
+        {
+            return BadRequest("Legacy unauthenticated linking transactions are no longer accepted.");
+        }
 
-        _logger.LogInformation(
-            $"SAML request has relayState of {relayState}");
+        TimedSamlLinkState samlLinkState = null;
+        bool isLinking = relayState?.StartsWith(SamlLinkStatePrefix, StringComparison.Ordinal) == true;
+        if (isLinking)
+        {
+            if (!SamlLinkStateManager.TryRemove(relayState, out samlLinkState)
+                || IsAuthorizationStateExpired(samlLinkState.Created)
+                || !string.Equals(samlLinkState.Provider, provider, StringComparison.Ordinal))
+            {
+                return BadRequest("Invalid or expired SAML linking state.");
+            }
+        }
+
+        _logger.LogInformation("SAML response received. Is linking: {IsLinking}", isLinking);
 
         if (config.Enabled)
         {
@@ -602,6 +715,17 @@ public class SSOController : ControllerBase
             if (!samlResponse.IsValid())
             {
                 return Problem("Invalid SAML signature");
+            }
+
+            string providerUserId = samlResponse.GetNameID();
+            if (string.IsNullOrWhiteSpace(providerUserId))
+            {
+                return BadRequest("The SAML provider did not return a usable NameID.");
+            }
+
+            if (isLinking && !samlResponse.IsResponseTo(samlLinkState.RequestId, samlLinkState.Recipient))
+            {
+                return BadRequest("The SAML response does not match the linking request.");
             }
 
             bool valid = false;
@@ -626,19 +750,29 @@ public class SSOController : ControllerBase
 
             if (valid)
             {
+                if (isLinking)
+                {
+                    var linkResult = CreateCanonicalLink("saml", provider, samlLinkState.JellyfinUserId, providerUserId);
+                    if (linkResult is not NoContentResult)
+                    {
+                        return linkResult;
+                    }
+
+                    return Redirect(GetRequestBase(config.SchemeOverride, config.PortOverride) + "/SSOViews/linking");
+                }
+
                 return Content(
                         WebResponse.Generator(
                             data: Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(samlResponse.Xml)),
                             provider: provider,
                             baseUrl: GetRequestBase(config.SchemeOverride, config.PortOverride),
-                            mode: "SAML",
-                            isLinking: isLinking),
+                            mode: "SAML"),
                         MediaTypeNames.Text.Html);
             }
 
             _logger.LogWarning(
                 "SAML user: {UserId} has insufficient roles: {@Roles}. Expected any one of: {@ExpectedRoles}",
-                samlResponse.GetNameID(),
+                providerUserId,
                 samlResponse.GetCustomAttributes("Role"),
                 config.Roles);
             return ReturnError(StatusCodes.Status401Unauthorized, "Error. Check permissions.");
@@ -655,8 +789,44 @@ public class SSOController : ControllerBase
     /// <returns>A redirect to the SAML provider's auth page.</returns>
     [HttpGet("SAML/p/{provider}")]
     [HttpGet("SAML/start/{provider}")]
-    public RedirectResult SamlChallenge(string provider, [FromQuery] bool isLinking = false)
+    public ActionResult SamlChallenge(string provider, [FromQuery] bool isLinking = false)
     {
+        if (isLinking)
+        {
+            return BadRequest("Linking must be started from the authenticated SSO linking page.");
+        }
+
+        return StartSamlChallenge(provider, false, null, false);
+    }
+
+    /// <summary>
+    /// Starts a SAML account-linking flow for the authenticated Jellyfin user.
+    /// </summary>
+    /// <param name="provider">The name of the provider.</param>
+    /// <returns>The identity provider URL to navigate to.</returns>
+    [Authorize]
+    [HttpPost("SAML/StartLink/{provider}")]
+    [Produces(MediaTypeNames.Text.Plain)]
+    public async Task<ActionResult> SamlLinkChallenge(string provider)
+    {
+        var authorization = await _authContext.GetAuthorizationInfo(HttpContext.Request).ConfigureAwait(false);
+        if (!authorization.IsAuthenticated || authorization.User is null)
+        {
+            return Unauthorized();
+        }
+
+        Guid jellyfinUserId = authorization.UserId;
+        if (!await RequestHelpers.AssertCanUpdateUser(_authContext, HttpContext.Request, jellyfinUserId, true).ConfigureAwait(false))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, "User is not allowed to link SSO providers.");
+        }
+
+        return StartSamlChallenge(provider, true, jellyfinUserId, true);
+    }
+
+    private ActionResult StartSamlChallenge(string provider, bool isLinking, Guid? linkingUserId, bool returnStartUrl)
+    {
+        Invalidate();
         SamlConfig config;
         try
         {
@@ -677,17 +847,40 @@ public class SSOController : ControllerBase
             }
 
             string redirectUri = GetRequestBase(config.SchemeOverride, config.PortOverride) + $"/sso/SAML/{(newPath ? "post" : "p")}/" + provider;
-            string relayState = null;
-            if (isLinking)
-            {
-                relayState = "linking";
-            }
 
             var request = new AuthRequest(
                 config.SamlClientId.Trim(),
                 redirectUri);
 
-            return Redirect(request.GetRedirectUrl(config.SamlEndpoint.Trim(), relayState));
+            string relayState = null;
+            if (isLinking)
+            {
+                if (!linkingUserId.HasValue)
+                {
+                    return BadRequest("The linking transaction is not associated with a Jellyfin user.");
+                }
+
+                relayState = SamlLinkStatePrefix + Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+                var samlLinkState = new TimedSamlLinkState(
+                    linkingUserId.Value,
+                    provider,
+                    request.Id,
+                    redirectUri,
+                    DateTime.UtcNow);
+
+                if (!SamlLinkStateManager.TryAdd(relayState, samlLinkState))
+                {
+                    return StatusCode(StatusCodes.Status409Conflict, "A SAML linking flow with the same state already exists.");
+                }
+            }
+
+            string startUrl = request.GetRedirectUrl(config.SamlEndpoint.Trim(), relayState);
+            if (returnStartUrl)
+            {
+                return Content(startUrl, MediaTypeNames.Text.Plain);
+            }
+
+            return Redirect(startUrl);
         }
 
         throw new ArgumentException("Provider does not exist");
@@ -1144,20 +1337,25 @@ public class SSOController : ControllerBase
             return BadRequest("No matching provider found");
         }
 
-        foreach (var kvp in StateManager)
+        if (!string.IsNullOrEmpty(response.Data)
+            && StateManager.TryGetValue(response.Data, out var timedState)
+            && timedState.Valid
+            && !IsAuthorizationStateExpired(timedState.Created)
+            && string.Equals(timedState.Provider, provider, StringComparison.Ordinal))
         {
-            if (kvp.Value.State.State.Equals(response.Data) && kvp.Value.Valid)
-            {
-                string providerUserId = kvp.Value.Username;
-                return CreateCanonicalLink("oid", provider, jellyfinUserId, providerUserId);
-            }
+            return CreateCanonicalLink("oid", provider, jellyfinUserId, timedState.Username);
         }
 
-        return Problem("Something went wrong!");
+        return BadRequest("Invalid or expired authorization state.");
     }
 
     private ActionResult CreateCanonicalLink(string mode, string provider, [FromRoute] Guid jellyfinUserId, string providerUserId)
     {
+        if (string.IsNullOrWhiteSpace(providerUserId))
+        {
+            return BadRequest("The SSO provider did not return a usable user identifier.");
+        }
+
         SerializableDictionary<string, Guid> links = null;
         try
         {
@@ -1166,6 +1364,13 @@ public class SSOController : ControllerBase
         catch (KeyNotFoundException)
         {
             return BadRequest("No matching provider found");
+        }
+
+        if (links.TryGetValue(providerUserId, out var existingUserId) && existingUserId != jellyfinUserId)
+        {
+            return StatusCode(
+                StatusCodes.Status409Conflict,
+                "This SSO identity is already linked to another Jellyfin user.");
         }
 
         links[providerUserId] = jellyfinUserId;
@@ -1345,12 +1550,24 @@ public class SSOController : ControllerBase
     {
         foreach (var kvp in StateManager)
         {
-            var now = DateTime.Now;
-            if (now.Subtract(kvp.Value.Created).TotalMinutes > 1)
+            if (IsAuthorizationStateExpired(kvp.Value.Created))
             {
-                StateManager.Remove(kvp.Key);
+                StateManager.TryRemove(kvp.Key, out _);
             }
         }
+
+        foreach (var kvp in SamlLinkStateManager)
+        {
+            if (IsAuthorizationStateExpired(kvp.Value.Created))
+            {
+                SamlLinkStateManager.TryRemove(kvp.Key, out _);
+            }
+        }
+    }
+
+    private static bool IsAuthorizationStateExpired(DateTime created)
+    {
+        return DateTime.UtcNow.Subtract(created.ToUniversalTime()) > AuthorizationStateLifetime;
     }
 
     private string GetRequestBase(string schemeOverride = null, int? portOverride = null)
@@ -1443,6 +1660,8 @@ public class TimedAuthorizeState
         Valid = false;
         Admin = false;
         IsLinking = false;
+        LinkingUserId = null;
+        Provider = null;
         EnableLiveTv = false;
         EnableLiveTvManagement = false;
         AvatarURL = null;
@@ -1480,6 +1699,16 @@ public class TimedAuthorizeState
     public bool IsLinking { get; set; }
 
     /// <summary>
+    /// Gets or sets the Jellyfin user that authenticated the start of a linking flow.
+    /// </summary>
+    public Guid? LinkingUserId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the OIDC provider that owns this authorization state.
+    /// </summary>
+    public string Provider { get; set; }
+
+    /// <summary>
     /// Gets or sets the folders the user is allowed access to.
     /// </summary>
     public List<string> Folders { get; set; }
@@ -1498,4 +1727,52 @@ public class TimedAuthorizeState
     /// Gets or sets the user avatar url.
     /// </summary>
     public string AvatarURL { get; set; }
+}
+
+/// <summary>
+/// Stores the authenticated Jellyfin side of an in-progress SAML linking transaction.
+/// </summary>
+public sealed class TimedSamlLinkState
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TimedSamlLinkState"/> class.
+    /// </summary>
+    /// <param name="jellyfinUserId">The authenticated Jellyfin user.</param>
+    /// <param name="provider">The SAML provider.</param>
+    /// <param name="requestId">The SAML authentication request ID.</param>
+    /// <param name="recipient">The assertion consumer service URL for the request.</param>
+    /// <param name="created">When the transaction was created.</param>
+    public TimedSamlLinkState(Guid jellyfinUserId, string provider, string requestId, string recipient, DateTime created)
+    {
+        JellyfinUserId = jellyfinUserId;
+        Provider = provider;
+        RequestId = requestId;
+        Recipient = recipient;
+        Created = created;
+    }
+
+    /// <summary>
+    /// Gets the authenticated Jellyfin user.
+    /// </summary>
+    public Guid JellyfinUserId { get; }
+
+    /// <summary>
+    /// Gets the SAML provider.
+    /// </summary>
+    public string Provider { get; }
+
+    /// <summary>
+    /// Gets the SAML authentication request ID.
+    /// </summary>
+    public string RequestId { get; }
+
+    /// <summary>
+    /// Gets the assertion consumer service URL for the request.
+    /// </summary>
+    public string Recipient { get; }
+
+    /// <summary>
+    /// Gets when the transaction was created.
+    /// </summary>
+    public DateTime Created { get; }
 }

@@ -72,6 +72,11 @@ public class SSOPlugin : BasePlugin<PluginConfiguration>, IPlugin, IHasWebPages
                 Name = Name + "-linking.js",
                 EmbeddedResourcePath = $"{GetType().Namespace}.Config.linking.js"
             },
+            new PluginPageInfo
+            {
+                Name = Name + "-linking.css",
+                EmbeddedResourcePath = $"{GetType().Namespace}.Views.linking.css"
+            },
         };
     }
 
@@ -107,6 +112,11 @@ public class SSOPlugin : BasePlugin<PluginConfiguration>, IPlugin, IHasWebPages
             {
                 Name = "emby-restyle.css",
                 EmbeddedResourcePath = $"{GetType().Namespace}.Views.emby-restyle.css"
+            },
+            new PluginPageInfo
+            {
+                Name = "linking.css",
+                EmbeddedResourcePath = $"{GetType().Namespace}.Views.linking.css"
             },
             new PluginPageInfo
             {

@@ -1,186 +1,306 @@
+const MODE_LABELS = {
+  oid: "OpenID Connect",
+  saml: "SAML",
+};
+
+const setStatus = (element, message, isError = false) => {
+  element.textContent = message;
+  element.classList.toggle("sso-status-error", isError);
+};
+
+const requestJson = (url) =>
+  ApiClient.fetch({
+    type: "GET",
+    url,
+    dataType: "json",
+    headers: { accept: "application/json" },
+  });
+
+const encodePathSegment = (value) => encodeURIComponent(String(value));
+
+const applyPageStyles = () => {
+  if (document.querySelector("#linking-style")) return;
+
+  const style = document.createElement("link");
+  style.id = "linking-style";
+  style.rel = "stylesheet";
+  style.href = `${ApiClient.getUrl("web/configurationpage")}?name=SSO-Auth-linking.css`;
+  document.head.appendChild(style);
+};
+
 const ssoConfigLinking = {
-  pluginUniqueId: "505ce9d1-d916-42fa-86ca-673ef241d7df",
   loadProviders: (view) => {
-    const provider_list_id = "sso-provider-list";
-    const provider_list_saml_id = `${provider_list_id}-saml`;
-    const provider_list_oid_id = `${provider_list_id}-oid`;
-
-    const provider_list_saml = view.querySelector(`#${provider_list_saml_id}`);
-    const provider_list_oid = view.querySelector(`#${provider_list_oid_id}`);
-    provider_list_saml.innerHTML = "";
-    provider_list_oid.innerHTML = "";
-
-    fetch(new Request(ApiClient.getUrl("sso/OID/GetNames"))).then((resp) => {
-      resp.json().then((config_names) => {
-        ssoConfigLinking.loadProviderList(
-          provider_list_oid,
-          config_names,
-          "oid",
-        );
-      });
-    });
-    fetch(new Request(ApiClient.getUrl("sso/SAML/GetNames"))).then((resp) => {
-      resp.json().then((config_names) => {
-        ssoConfigLinking.loadProviderList(
-          provider_list_saml,
-          config_names,
-          "saml",
-        );
-      });
-    });
+    void Promise.all([
+      ssoConfigLinking.loadProviderMode(view, "saml"),
+      ssoConfigLinking.loadProviderMode(view, "oid"),
+    ]).then(() => ssoConfigLinking.updateDeleteButton(view));
   },
-  loadProviderList: (container, providers, provider_mode) => {
-    providers.forEach((provider_name) => {
-      var provider_config = document.createElement("div");
-      provider_config.classList.add("sso-provider-links-container");
-      provider_config.setAttribute("data-id", provider_name);
 
-      provider_config.innerHTML = `
-      <label
-        class="inputLabel inputLabelUnfocused sso-provider-link-title"
-      >${provider_name}
-      </label>
-      <a
-        class="fab emby-button sso-provider-add-link"
-      >
-        <span class="material-icons add" aria-hidden="true"></span>
-      </a>
-      <div
-        class="sso-provider-existing-links-container"
-        data-provider="${provider_name}"
-      ></div>
-      `;
-      var add_provider = provider_config.querySelector(
-        ".sso-provider-add-link",
-      );
-
-      //const provider_name_css = ssoConfigLinking.safeCSSId(provider_name);
-      //provider_link.id = "sso-provider-" + provider_name_css;
-      //provider_link.classList.add("sso-provider-" + provider_name_css);
-      add_provider.classList.add("sso-provider");
-
-      add_provider.href = ApiClient.getUrl(
-        `/SSO/${provider_mode}/p/${provider_name}?isLinking=true`,
-      );
-
-      container.appendChild(provider_config);
-    });
-
+  loadProviderMode: async (view, providerMode) => {
+    const container = view.querySelector(`#sso-provider-list-${providerMode}`);
     const currentUserId = ApiClient.getCurrentUserId();
 
-    if (currentUserId) {
-      ApiClient.fetch(
-        {
-          type: "GET",
-          url: ApiClient.getUrl(`sso/${provider_mode}/links/${currentUserId}`),
-        },
-        true,
-      ).then((resp) => {
-        resp.json().then((provider_map) => {
-          console.log({ provider_map, currentUserId });
+    container.replaceChildren();
+    container.setAttribute("aria-busy", "true");
+    const loading = document.createElement("p");
+    loading.className = "sso-status";
+    loading.setAttribute("role", "status");
+    loading.textContent = "Loading providers…";
+    container.appendChild(loading);
 
-          Object.keys(provider_map).forEach((provider_name) => {
-            const provider_container = container.querySelector(
-              `.sso-provider-existing-links-container[data-provider="${provider_name}"]`,
-            );
-            ssoConfigLinking.populateExistingLinks(
-              provider_container,
-              provider_mode,
-              provider_name,
-              provider_map[provider_name],
-            );
-          });
-        });
+    try {
+      if (!currentUserId) {
+        throw new Error("No authenticated Jellyfin user is available.");
+      }
+
+      const [providers, providerMap] = await Promise.all([
+        requestJson(ApiClient.getUrl(`sso/${providerMode}/GetNames`)),
+        requestJson(
+          ApiClient.getUrl(
+            `sso/${providerMode}/links/${encodePathSegment(currentUserId)}`,
+          ),
+        ),
+      ]);
+
+      if (!Array.isArray(providers)) {
+        throw new Error("The server returned an invalid provider list.");
+      }
+
+      ssoConfigLinking.loadProviderList(
+        container,
+        providers,
+        providerMode,
+        providerMap || {},
+      );
+    } catch (error) {
+      console.error(`Unable to load ${providerMode} providers`, error);
+      container.replaceChildren();
+
+      const message = document.createElement("p");
+      message.className = "sso-status sso-status-error";
+      message.setAttribute("role", "alert");
+      message.textContent = `Unable to load ${MODE_LABELS[providerMode]} providers.`;
+
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "raised emby-button";
+      retry.textContent = "Retry";
+      retry.addEventListener("click", () =>
+        ssoConfigLinking.loadProviderMode(view, providerMode),
+      );
+
+      container.append(message, retry);
+    } finally {
+      container.setAttribute("aria-busy", "false");
+    }
+  },
+
+  loadProviderList: (container, providers, providerMode, providerMap) => {
+    container.replaceChildren();
+
+    if (providers.length === 0) {
+      const emptyState = document.createElement("p");
+      emptyState.className = "sso-status";
+      emptyState.textContent = "No providers configured.";
+      container.appendChild(emptyState);
+      return;
+    }
+
+    providers.forEach((providerName) => {
+      const providerConfig = document.createElement("div");
+      providerConfig.className = "sso-provider-links-container";
+      providerConfig.dataset.id = providerName;
+
+      const title = document.createElement("div");
+      title.className =
+        "inputLabel inputLabelUnfocused sso-provider-link-title";
+      title.textContent = providerName;
+
+      const addProvider = document.createElement("button");
+      addProvider.type = "button";
+      addProvider.className =
+        "raised emby-button sso-provider-add-link sso-provider";
+      addProvider.setAttribute("aria-label", `Link ${providerName}`);
+      addProvider.title = `Link ${providerName}`;
+
+      const addIcon = document.createElement("span");
+      addIcon.className = "sso-action-icon";
+      addIcon.setAttribute("aria-hidden", "true");
+      addIcon.textContent = "+";
+      const addLabel = document.createElement("span");
+      addLabel.textContent = "Link";
+      addProvider.append(addIcon, addLabel);
+      addProvider.addEventListener("click", (event) =>
+        ssoConfigLinking.handleAddLink(event, providerMode, providerName),
+      );
+
+      const existingLinks = document.createElement("div");
+      existingLinks.className = "sso-provider-existing-links-container";
+      existingLinks.dataset.provider = providerName;
+
+      providerConfig.append(title, addProvider, existingLinks);
+      container.appendChild(providerConfig);
+
+      ssoConfigLinking.populateExistingLinks(
+        existingLinks,
+        providerMode,
+        providerName,
+        providerMap[providerName],
+      );
+    });
+  },
+
+  handleAddLink: async (event, providerMode, providerName) => {
+    const button = event.currentTarget;
+    const pageStatus = document.querySelector("#page-status");
+
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    setStatus(pageStatus, `Opening ${providerName}…`);
+
+    try {
+      const response = await ApiClient.fetch({
+        type: "POST",
+        url: ApiClient.getUrl(
+          `sso/${providerMode}/startlink/${encodePathSegment(providerName)}`,
+        ),
       });
+      const redirectUrl = (
+        typeof response === "string" ? response : await response.text()
+      ).trim();
+
+      if (!redirectUrl) {
+        throw new Error("The server returned an empty SSO redirect URL.");
+      }
+
+      const destination = new URL(redirectUrl, window.location.href);
+      if (!new Set(["http:", "https:"]).has(destination.protocol)) {
+        throw new Error("The server returned an unsupported redirect URL.");
+      }
+
+      window.location.assign(destination.href);
+    } catch (error) {
+      console.error("Unable to start the SSO linking flow", error);
+      setStatus(
+        pageStatus,
+        `Unable to start linking with ${providerName}. Please try again.`,
+        true,
+      );
+      button.disabled = false;
+      button.setAttribute("aria-busy", "false");
     }
   },
 
   populateExistingLinks: (
     container,
-    provider_mode,
-    provider_name,
-    canonical_names,
+    providerMode,
+    providerName,
+    canonicalNames,
   ) => {
-    container
-      .querySelectorAll(".sso-provider-link-checkbox-wrapper")
-      .forEach((e) => e.remove());
+    container.replaceChildren();
 
-    const checkboxes = canonical_names.map((canonical_name) => {
-      var out = document.createElement("label");
-      out.classList.add("sso-provider-link-checkbox-wrapper");
-      out.classList.add("checkbox-wrapper");
-      out.innerHTML = `
-        <input
-          is="emby-checkbox"
-          class="sso-link-checkbox"
-          data-id="${canonical_name}"
-          data-mode="${provider_mode}"
-          data-provider="${provider_name}"
-          type="checkbox"
-        />
-        <span class="checkbox-label">${canonical_name}</span>
-      `;
-      return out;
-    });
+    if (!Array.isArray(canonicalNames) || canonicalNames.length === 0) return;
 
-    checkboxes.forEach((e) => {
-      container.appendChild(e);
+    const label = document.createElement("p");
+    label.className = "sso-linked-label";
+    label.textContent = "Linked identities";
+    container.appendChild(label);
+
+    canonicalNames.forEach((canonicalName) => {
+      const wrapper = document.createElement("label");
+      wrapper.className = "sso-provider-link-checkbox-wrapper checkbox-wrapper";
+
+      const checkbox = document.createElement("input");
+      checkbox.className = "sso-link-checkbox";
+      checkbox.dataset.id = canonicalName;
+      checkbox.dataset.mode = providerMode;
+      checkbox.dataset.provider = providerName;
+      checkbox.type = "checkbox";
+
+      const checkboxLabel = document.createElement("span");
+      checkboxLabel.className = "checkbox-label";
+      checkboxLabel.textContent = canonicalName;
+
+      wrapper.append(checkbox, checkboxLabel);
+      container.appendChild(wrapper);
     });
   },
 
-  handleDeleteButtonPressed: (evt, view) => {
-    if (evt.target.disabled) return;
+  selectedLinks: (view) => [
+    ...view.querySelectorAll(".sso-link-checkbox:checked"),
+  ],
 
+  updateDeleteButton: (view) => {
+    const deleteEnabled = view.querySelector("#enable-delete").checked;
+    const hasSelection = ssoConfigLinking.selectedLinks(view).length > 0;
+    view.querySelector("#btn-delete-selected-links").disabled =
+      !deleteEnabled || !hasSelection;
+  },
+
+  handleDeleteButtonPressed: async (event, view) => {
+    const button = event.currentTarget;
+    const selectedLinks = ssoConfigLinking.selectedLinks(view);
     const currentUserId = ApiClient.getCurrentUserId();
-    if (!currentUserId) return;
+    const deleteStatus = view.querySelector("#delete-status");
 
-    const delete_requests = [...view.querySelectorAll(".sso-link-checkbox")]
-      .filter((checkbox_link) => {
-        const canonical_name = checkbox_link.getAttribute("data-id");
-        const provider_name = checkbox_link.getAttribute("data-provider");
-        const provider_mode = checkbox_link.getAttribute("data-mode");
+    if (button.disabled || !currentUserId || selectedLinks.length === 0) return;
 
-        if (![canonical_name, provider_name, provider_mode].every((e) => e)) {
-          return false;
-        }
+    const noun = selectedLinks.length === 1 ? "link" : "links";
+    if (
+      !window.confirm(
+        `Delete ${selectedLinks.length} selected SSO ${noun}? You may lose access if no other sign-in method is available.`,
+      )
+    ) {
+      return;
+    }
 
-        if (!checkbox_link.checked) {
-          return false;
-        }
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    setStatus(deleteStatus, `Deleting ${selectedLinks.length} ${noun}…`);
 
-        return true;
-      })
-      .map((checked_link) => {
-        const canonical_name = checked_link.getAttribute("data-id");
-        const provider_name = checked_link.getAttribute("data-provider");
-        const provider_mode = checked_link.getAttribute("data-mode");
+    try {
+      await Promise.all(
+        selectedLinks.map((link) =>
+          ApiClient.fetch({
+            type: "DELETE",
+            url: ApiClient.getUrl(
+              `sso/${link.dataset.mode}/link/${encodePathSegment(link.dataset.provider)}/${encodePathSegment(currentUserId)}/${encodePathSegment(link.dataset.id)}`,
+            ),
+          }),
+        ),
+      );
 
-        return ApiClient.fetch({
-          type: "DELETE",
-          url: ApiClient.getUrl(
-            `sso/${provider_mode}/link/${provider_name}/${currentUserId}/${canonical_name}`,
-          ),
-        });
-      });
-
-    Promise.all(delete_requests).then((values) => {
-      console.log({ message: "Delete requests handled", values });
+      setStatus(deleteStatus, `Deleted ${selectedLinks.length} ${noun}.`);
       window.location.reload();
-    });
+    } catch (error) {
+      console.error("Unable to delete selected SSO links", error);
+      setStatus(
+        deleteStatus,
+        "Unable to delete the selected links. Review your selection and try again.",
+        true,
+      );
+      button.setAttribute("aria-busy", "false");
+      ssoConfigLinking.updateDeleteButton(view);
+    }
   },
 };
 
 export default function (view) {
+  applyPageStyles();
   ssoConfigLinking.loadProviders(view);
 
-  view.querySelector("#enable-delete").addEventListener("change", (e) => {
-    view.querySelector("#btn-delete-selected-links").disabled =
-      !e.target.checked;
+  view.addEventListener("change", (event) => {
+    if (
+      event.target.matches("#enable-delete") ||
+      event.target.matches(".sso-link-checkbox")
+    ) {
+      ssoConfigLinking.updateDeleteButton(view);
+    }
   });
 
   view
     .querySelector("#btn-delete-selected-links")
-    .addEventListener("click", (e) =>
-      ssoConfigLinking.handleDeleteButtonPressed(e, view),
+    .addEventListener("click", (event) =>
+      ssoConfigLinking.handleDeleteButtonPressed(event, view),
     );
 }

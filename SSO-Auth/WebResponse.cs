@@ -411,9 +411,8 @@ const sleep = (milliseconds) => {
     /// <param name="provider">The name of the provider to callback to.</param>
     /// <param name="baseUrl">The base URL of the Jellyfin installation.</param>
     /// <param name="mode">The mode of the function; SAML or OID.</param>
-    /// <param name="isLinking">Whether or not this request is to link accounts (Rather than authenticate).</param>
     /// <returns>A string with the HTML to serve to the client.</returns>
-    public static string Generator(string data, string provider, string baseUrl, string mode, bool isLinking = false)
+    public static string Generator(string data, string provider, string baseUrl, string mode)
     {
         // Strip out the protocol (http:// or https://) and convert the domain to Punycode
         var idnMapping = new IdnMapping();
@@ -424,41 +423,6 @@ const sleep = (milliseconds) => {
         var punycodeBaseUrl = protocol + punycodeDomain;
 
         return Base + @"
-async function link(request) {
-    const jfCredentialsString = localStorage.getItem(""jellyfin_credentials"");
-
-    if (jfCredentialsString == null) return;
-
-    const jfCredentials = JSON.parse(jfCredentialsString);
-    const jfUser = jfCredentials['Servers'][0]['UserId'];
-    const jfToken = jfCredentials['Servers'][0]['AccessToken'];
-
-    if (jfUser == null) return;
-    if (jfToken == null) return;
-
-    const url = '" + $"{punycodeBaseUrl}/sso/{mode}/Link/{provider}/" + @"' + jfUser;
-
-    return new Promise(resolve => {
-       var xhr = new XMLHttpRequest();
-       xhr.open('POST', url, true);
-       xhr.setRequestHeader('Content-Type', 'application/json');
-       xhr.setRequestHeader('Accept', 'application/json');
-
-       xhr.setRequestHeader(
-           'X-Emby-Authorization', 
-           `MediaBrowser Client=""${request.appName}"",Device=""${request.deviceName}"",DeviceId=""${request.deviceId}"",Version=""${request.appVersion}"",Token=""${jfToken}""`)
-
-       xhr.onload = function(e) {
-         resolve(xhr.response);
-       };
-       xhr.onerror = function (e) {
-         console.log(e);
-         resolve(undefined);
-       };
-       xhr.send(JSON.stringify(request));
-    })
-}
-
 async function main() {
     localStorage.removeItem('jellyfin_credentials');
     document.getElementById('iframe-main').src = '" + punycodeBaseUrl + @"/web/index.html';
@@ -476,8 +440,6 @@ async function main() {
     var deviceName = getDeviceName();
 
     var request = {deviceId, appName, appVersion, deviceName, data};
-
-    if (" + $"{isLinking}".ToLower() + @") await link(request);
 
     var url = '" + punycodeBaseUrl + "/sso/" + mode + "/Auth/" + provider + @"';
 

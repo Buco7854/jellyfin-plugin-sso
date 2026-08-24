@@ -1,99 +1,157 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <!-- Polyfill styles that are missing when serving without dashboard -->
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
     <link rel="stylesheet" href="emby-restyle.css" />
     <link id="theme-style" rel="stylesheet" />
-    <script defer>
-      import("./ApiClient.js").then((clientModule) => {
-        import("./linking.js").then((renderer) => {
-          const view = document.querySelector("#sso-config-page");
+    <link id="linking-style" rel="stylesheet" href="linking.css" />
+    <script type="module">
+      try {
+        await import("./ApiClient.js");
+        const renderer = await import("./linking.js");
+        const view = document.querySelector("#sso-config-page");
 
-          document.querySelector("#theme-style").href = ApiClient.getUrl(
-            "/web/themes/dark/theme.css",
-          );
-
-          const homeButton = document.querySelector("a.emby-button.home");
-          homeButton.href = ApiClient.serverAddress();
-          homeButton.style.display = "";
-          renderer.default(view);
+        const themeStyle = document.querySelector("#theme-style");
+        await new Promise((resolve) => {
+          themeStyle.addEventListener("load", resolve, { once: true });
+          themeStyle.addEventListener("error", resolve, { once: true });
+          themeStyle.href = ApiClient.getUrl("web/themes/dark/theme.css");
         });
-      });
+
+        const homeButton = view.querySelector(".sso-home-button");
+        homeButton.href = ApiClient.serverAddress();
+        homeButton.hidden = false;
+
+        renderer.default(view);
+      } catch (error) {
+        console.error("Unable to initialize the SSO linking page", error);
+        const status = document.querySelector("#page-status");
+        status.textContent =
+          "Unable to load this page. Return to Jellyfin, sign in, and try again.";
+        status.classList.add("sso-status-error");
+      }
     </script>
     <title>SSO Linking</title>
   </head>
-  <body class="force-scroll dashboardDocument mouseIdle">
-    <div
+  <body class="force-scroll dashboardDocument sso-linking-document">
+    <main
       id="sso-config-page"
       data-role="page"
-      class="page type-interior pluginConfigurationPage esqConfigurationPage"
+      class="page type-interior pluginConfigurationPage esqConfigurationPage sso-linking-page"
       data-controller="__plugin/SSO-Auth-linking.js"
+      aria-labelledby="sso-page-title"
     >
       <div data-role="content">
         <div class="content-primary">
-          <div class="sectionTitleContainer flex align-items-center">
-            <a class="raised emby-button home" style="display: none">
-              <span class="material-icons home" aria-hidden="true"></span
-              ><span>Home</span>
+          <header class="sectionTitleContainer sso-page-header">
+            <a class="raised emby-button sso-home-button" href="/" hidden>
+              <span class="sso-action-icon" aria-hidden="true">←</span>
+              <span>Home</span>
             </a>
-            <h2 class="sectionTitle">SSO Linking:</h2>
+            <h1 id="sso-page-title" class="sectionTitle">SSO Linking</h1>
             <a
-              is="emby-button"
-              class="raised button-alt headerHelpButton"
+              class="raised button-alt emby-button headerHelpButton"
               target="_blank"
+              rel="noopener noreferrer"
               href="https://github.com/Buco7854/jellyfin-plugin-sso"
-              >${Help}</a
+              >Help</a
             >
+          </header>
+
+          <div class="sso-page-intro">
+            <p>
+              Link this Jellyfin account to an identity from a configured SSO
+              provider. Select <strong>Link</strong> beside the provider and
+              authenticate when redirected.
+            </p>
+            <p>
+              Existing links can be selected and removed below. Make sure you
+              retain another way to sign in before deleting a link.
+            </p>
           </div>
-          <p>
-            Use the
-            <span class="fab" aria-hidden="true">
-              <span class="material-icons add" aria-hidden="true"></span>
-            </span>
-            button to create a new link for the given provider.
-            <br />
-            You may remove existing links by selecting them and pressing the
-            "Delete" button.
-          </p>
-          <p>
+
+          <p
+            id="page-status"
+            class="sso-status"
+            role="status"
+            aria-live="polite"
+          ></p>
+
+          <section class="verticalSection" aria-labelledby="providers-title">
+            <h2 id="providers-title" class="sectionTitle">Link a provider</h2>
+
+            <section class="sso-provider-group" aria-labelledby="saml-title">
+              <h3 id="saml-title">SAML</h3>
+              <div id="sso-provider-list-saml" class="paperList" data-id="saml">
+                <p class="sso-status" role="status">Loading providers…</p>
+              </div>
+            </section>
+
+            <section class="sso-provider-group" aria-labelledby="oid-title">
+              <h3 id="oid-title">OpenID Connect</h3>
+              <div id="sso-provider-list-oid" class="paperList" data-id="oid">
+                <p class="sso-status" role="status">Loading providers…</p>
+              </div>
+            </section>
+          </section>
+
+          <section
+            class="verticalSection sso-delete-section"
+            aria-labelledby="remove-links-title"
+          >
+            <h2 id="remove-links-title" class="sectionTitle">
+              Remove selected links
+            </h2>
+            <p class="fieldDescription">
+              Select linked identities above, then enable removal to confirm the
+              action.
+            </p>
+
+            <label class="checkbox-wrapper sso-delete-enable">
+              <input id="enable-delete" type="checkbox" />
+              <span class="checkbox-label">Enable link removal</span>
+            </label>
+
+            <button
+              id="btn-delete-selected-links"
+              type="button"
+              class="button-delete raised emby-button"
+              disabled
+            >
+              <span>Delete selected</span>
+            </button>
+            <p
+              id="delete-status"
+              class="sso-status"
+              role="status"
+              aria-live="polite"
+            ></p>
+          </section>
+
+          <footer class="sso-page-footer">
             See the
             <a
-              is="emby-linkbutton"
               href="https://github.com/Buco7854/jellyfin-plugin-sso"
-              class="button-link"
-              >homepage</a
+              target="_blank"
+              rel="noopener noreferrer"
+              >project homepage</a
             >
             and
             <a
-              is="emby-linkbutton"
               href="https://github.com/Buco7854/jellyfin-plugin-sso/issues"
-              class="button-link"
-              >issue tracker
-            </a>
+              target="_blank"
+              rel="noopener noreferrer"
+              >issue tracker</a
+            >
             for more information.
-          </p>
-          <label class="checkbox-wrapper">
-            <input is="emby-checkbox" id="enable-delete" type="checkbox" />
-            <span class="checkbox-label">Enable "Delete" button.</span>
-          </label>
-          <h1 class="sectionTitle">Link a provider</h1>
-          <div class="verticalSection" title="Link a provider">
-            <h2 class="sectionTitle">SAML</h2>
-            <div id="sso-provider-list-saml" data-id="saml"></div>
-            <h2 class="sectionTitle">OID</h2>
-            <div id="sso-provider-list-oid" data-id="oid"></div>
-          </div>
-          <button
-            id="btn-delete-selected-links"
-            type="button"
-            class="button-delete raised emby-button"
-            disabled="true"
-          >
-            <span class="material-icons delete" aria-hidden="true"></span>
-            <span>Delete Selected</span>
-          </button>
+          </footer>
         </div>
       </div>
-    </div>
+    </main>
   </body>
 </html>
