@@ -1,152 +1,141 @@
-import jellyfinApiclient from "./jellyfin-apiClient.esm.min.js";
-window.jellyfinApiclient = jellyfinApiclient;
-console.log(jellyfinApiclient);
+const CREDENTIALS_KEY = "jellyfin_credentials";
+const DEVICE_ID_KEY = "_deviceId2";
+const APP_NAME = "SSO-Auth";
+const APP_VERSION = "5.0.0.0";
+const DEVICE_NAME = "Browser";
 
-// https://github.com/jellyfin/jellyfin-web/blob/9067b0e397cc8b38635d661ce86ddd83194f3202/src/scripts/clientUtils.js#L19-L76
-export async function serverAddress({ basePath = "/web" }) {
-  const apiClient = window.ApiClient;
+const sleep = (milliseconds) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-  if (apiClient) {
-    return Promise.resolve(apiClient.serverAddress());
+const normalizeAddress = (address) => address?.replace(/\/+$/, "");
+
+// Based on jellyfin-web's server address discovery. The standalone linking page
+// cannot use jellyfin-web's in-memory ApiClient after a full-page navigation.
+export async function serverAddress({ basePath = "/web" } = {}) {
+  const existingApiClient = window.ApiClient;
+
+  if (existingApiClient) {
+    return existingApiClient.serverAddress();
   }
 
-  const urls = [];
-
-  const getViewUrl = (basePath) => {
-    let url;
+  const getViewUrl = (path) => {
     const index = window.location.href
       .toLowerCase()
-      .lastIndexOf(basePath.toLowerCase());
-
-    if (index != -1) {
-      url = window.location.href.substring(0, index);
-    } else {
-      // Return nothing, let another method handle it
-      url = undefined;
-    }
-
-    return url;
+      .lastIndexOf(path.toLowerCase());
+    return index === -1 ? undefined : window.location.href.substring(0, index);
   };
 
-  if (urls.length === 0) {
-    // Otherwise use computed base URL
-    let url;
+  const candidate =
+    getViewUrl(basePath) ?? getViewUrl("/web") ?? window.location.origin;
 
-    url = getViewUrl(basePath) ?? getViewUrl("/web") ?? window.location.origin;
+  if (candidate.startsWith("file:")) {
+    throw new Error("Unable to determine the Jellyfin server address.");
+  }
 
-    // Don't use bundled app URL (file:) as server URL
-    if (url.startsWith("file:")) {
-      return Promise.resolve();
+  const response = await fetch(
+    `${normalizeAddress(candidate)}/System/Info/Public`,
+  );
+  if (!response.ok) {
+    throw new Error("Unable to connect to the Jellyfin server.");
+  }
+
+  return normalizeAddress(candidate);
+}
+
+async function readAuthenticatedServer(address, timeoutMilliseconds = 10000) {
+  const deadline = Date.now() + timeoutMilliseconds;
+
+  while (Date.now() < deadline) {
+    const storedCredentials = localStorage.getItem(CREDENTIALS_KEY);
+
+    if (storedCredentials) {
+      try {
+        const credentials = JSON.parse(storedCredentials);
+        const authenticatedServers = (credentials.Servers || []).filter(
+          (server) => server.AccessToken && server.UserId,
+        );
+        const normalizedAddress = normalizeAddress(address);
+        const matchingServer = authenticatedServers.find((server) =>
+          [server.LocalAddress, server.ManualAddress, server.RemoteAddress]
+            .map(normalizeAddress)
+            .includes(normalizedAddress),
+        );
+
+        if (matchingServer) {
+          return matchingServer;
+        }
+      } catch (error) {
+        console.warn("Unable to read stored Jellyfin credentials", error);
+      }
     }
 
-    urls.push(url);
-  }
-
-  console.debug("URL candidates:", urls);
-
-  const promises = urls.map((url) => {
-    return fetch(`${url}/System/Info/Public`)
-      .then((resp) => {
-        return {
-          url: url,
-          response: resp,
-        };
-      })
-      .catch(() => {
-        return Promise.resolve();
-      });
-  });
-
-  return Promise.all(promises)
-    .then((responses) => {
-      responses = responses.filter((obj) => obj && obj.response.ok);
-      return Promise.all(
-        responses.map((obj) => {
-          return {
-            url: obj.url,
-            config: obj.response.json(),
-          };
-        }),
-      );
-    })
-    .then((configs) => {
-      const selection =
-        configs.find((obj) => !obj.config.StartupWizardCompleted) || configs[0];
-      return Promise.resolve(selection?.url);
-    })
-    .catch((error) => {
-      console.log(error);
-      return Promise.resolve();
-    });
-}
-
-// TODO: Refactor duplicated code
-// ! Duplicated at
-// https://github.com/Buco7854/jellyfin-plugin-sso/blob/38558d762a13422862240af4060bdd1bb1618d57/SSO-Auth/WebResponse.cs#L363-L401
-function getDeviceName() {
-  return "DUMMY";
-}
-
-function getDeviceId() {
-  return localStorage.getItem("_deviceId2");
-}
-
-const sleep = (milliseconds) => {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-};
-
-async function awaitLocalStorage() {
-  while (
-    localStorage.getItem("_deviceId2") == null ||
-    localStorage.getItem("jellyfin_credentials") == null ||
-    JSON.parse(localStorage.getItem("jellyfin_credentials"))["Servers"][0][
-      "Id"
-    ] == null
-  ) {
-    // If localStorage isn't initialized yet, try again.
     await sleep(100);
   }
+
+  throw new Error("No authenticated Jellyfin session is available.");
 }
 
-await awaitLocalStorage();
+function createAuthorizationHeader(accessToken, deviceId) {
+  const values = [
+    `Client="${encodeURIComponent(APP_NAME)}"`,
+    `Device="${encodeURIComponent(DEVICE_NAME)}"`,
+    `Version="${encodeURIComponent(APP_VERSION)}"`,
+    `Token="${encodeURIComponent(accessToken)}"`,
+  ];
 
-// Fetch credentials
+  if (deviceId) {
+    values.splice(2, 0, `DeviceId="${encodeURIComponent(deviceId)}"`);
+  }
 
-var credentials = new jellyfinApiclient.Credentials();
+  return `MediaBrowser ${values.join(", ")}`;
+}
 
-var server = await serverAddress({ basePath: "/SSOViews" });
-console.log({ server: server });
-var deviceId = getDeviceId();
-var appName = "SSO-Auth";
-var appVersion = "0.0.0.9000";
-var capabilities = {};
+function createApiClient(address, authenticatedServer) {
+  const authorizationHeader = createAuthorizationHeader(
+    authenticatedServer.AccessToken,
+    localStorage.getItem(DEVICE_ID_KEY),
+  );
 
-const current_server = credentials
-  .credentials()
-  .Servers.find((e) => e.LocalAddress == server || e.ManualAddress == server);
+  return {
+    serverAddress: () => address,
+    getCurrentUserId: () => authenticatedServer.UserId,
+    getUrl: (path) =>
+      `${normalizeAddress(address)}/${String(path).replace(/^\/+/, "")}`,
+    fetch: async (request) => {
+      const headers = new Headers(request.headers || {});
+      headers.set("Authorization", authorizationHeader);
 
-var localApiClient = new jellyfinApiclient.ApiClient(
-  server,
-  appName,
-  appVersion,
-  getDeviceName(),
-  deviceId,
-);
-localApiClient.setAuthenticationInfo(
-  current_server.AccessToken,
-  current_server.UserId,
-);
+      if (request.contentType) {
+        headers.set("Content-Type", request.contentType);
+      }
 
-var connections = new jellyfinApiclient.ConnectionManager(
-  credentials,
-  appName,
-  appVersion,
-  getDeviceName(),
-  deviceId,
-  capabilities,
-);
+      const response = await fetch(request.url, {
+        method: request.type || "GET",
+        headers,
+        body: request.data,
+        credentials: "same-origin",
+      });
 
-connections.addApiClient(localApiClient);
+      if (!response.ok) {
+        throw response;
+      }
+
+      if (request.dataType === "json") {
+        return response.json();
+      }
+
+      if (request.dataType === "text") {
+        return response.text();
+      }
+
+      return response;
+    },
+  };
+}
+
+const address = await serverAddress({ basePath: "/SSOViews" });
+const authenticatedServer = await readAuthenticatedServer(address);
+const localApiClient = createApiClient(address, authenticatedServer);
 
 window.ApiClient = localApiClient;
 
