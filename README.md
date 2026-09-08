@@ -36,7 +36,7 @@ This is 100% alpha software! PRs are welcome to improve the code.
 
 ~~There is NO admin configuration! You must use the API to configure the program!~~ Added by [strazto](https://github.com/strazto) in PR [#18](https://github.com/Buco7854/jellyfin-plugin-sso/pull/18) and [#27](https://github.com/Buco7854/jellyfin-plugin-sso/pull/27).
 
-**[This is for Jellyfin >=10.8](https://github.com/Buco7854/jellyfin-plugin-sso/issues/3) and only on the Web UI or clients supporting [Quick Connect](https://jellyfin.org/docs/general/server/quick-connect)**
+**This branch targets Jellyfin 12.0 and requires .NET 10. Use an older plugin release for Jellyfin 10.11 or earlier. The sign-in flow is available in the Web UI and clients supporting [Quick Connect](https://jellyfin.org/docs/general/server/quick-connect).**
 
 **This README reflects the branch it is currently on! Switch tags to view version-specific documentation!**
 
@@ -84,6 +84,24 @@ The nightly build can be installed from the [main plugin repo](https://raw.githu
 
 The nightly build may have new features unavailable in other builds, but **be warned**, things may change frequently in nightly builds, and things may break, and you could lose data.
 
+### Testing a local Jellyfin 12 build
+
+Install the .NET 10 SDK and `zip`, then run this from the repository root:
+
+```bash
+./scripts/build-test-package.sh
+```
+
+The script creates `artifacts/jellyfin-plugin-sso_5.0.0.0_jellyfin12.zip`. To test it:
+
+1. Stop Jellyfin and back up its data directory.
+2. Move the currently installed SSO plugin directory out of Jellyfin's `plugins` directory.
+3. Create a new directory named `SSO Authentication_5.0.0.0` under `plugins` and extract the ZIP into it.
+4. Start Jellyfin and confirm the log contains `Loaded plugin: SSO-Auth 5.0.0.0`.
+5. Test an existing-user login, a new-user login, role mapping, and both OIDC/SAML account linking at `/SSOViews/linking` as applicable to your setup.
+
+Common plugin locations are `/config/plugins` in the official container and `/var/lib/jellyfin/plugins` in Linux package installations. Do not test against your only copy of production data; Jellyfin 12 database migrations are not reversible without a backup.
+
 ## Roadmap
 
 - [x] Admin page
@@ -128,7 +146,7 @@ For more information, refer to [issue #16](https://github.com/Buco7854/jellyfin-
 
 Example for adding a SAML configuration with the API using [curl](https://curl.se/):
 
-`curl -v -X POST -H "Content-Type: application/json" -d '{"samlEndpoint": "https://keycloak.example.com/realms/test/protocol/saml", "samlClientId": "jellyfin-saml", "samlCertificate": "Very long base64 encoded string here", "enabled": true, "enableAuthorization": true, "enableAllFolders": false, "enabledFolders": [], "adminRoles": ["jellyfin-admin"], "roles": ["allowed-to-use-jellyfin"], "enableFolderRoles": true, "folderRoleMapping": [{"role": "allowed-to-watch-movies", "folders": ["cc7df17e2f3509a4b5fc1d1ff0a6c4d0", "f137a2dd21bbc1b99aa5c0f6bf02a805"]}]}' "https://myjellyfin.example.com/sso/SAML/Add/PROVIDER_NAME?api_key=API_KEY_HERE"`
+`curl -v -X POST -H "Content-Type: application/json" -d '{"samlEndpoint": "https://keycloak.example.com/realms/test/protocol/saml", "samlClientId": "jellyfin-saml", "samlCertificate": "Very long base64 encoded string here", "enabled": true, "enableAuthorization": true, "enableAllFolders": false, "enabledFolders": [], "adminRoles": ["jellyfin-admin"], "roles": ["allowed-to-use-jellyfin"], "enableFolderRoles": true, "folderRoleMapping": [{"role": "allowed-to-watch-movies", "folders": ["cc7df17e2f3509a4b5fc1d1ff0a6c4d0", "f137a2dd21bbc1b99aa5c0f6bf02a805"]}]}' "https://myjellyfin.example.com/sso/SAML/Add/PROVIDER_NAME?ApiKey=API_KEY_HERE"`
 
 Make sure that the JSON is the same as the configuration you would like.
 
@@ -147,7 +165,7 @@ Make sure that `clientid` is replaced with the actual client ID and `PROVIDER_NA
 
 Example for adding an OpenID configuration with the API using [curl](https://curl.se/)
 
-`curl -v -X POST -H "Content-Type: application/json" -d '{"oidEndpoint": "https://keycloak.example.com/realms/test", "oidClientId": "jellyfin-oid", "oidSecret": "short secret here", "enabled": true, "enableAuthorization": true, "enableAllFolders": false, "enabledFolders": [], "adminRoles": ["jellyfin-admin"], "roles": ["allowed-to-use-jellyfin"], "enableFolderRoles": true, "folderRoleMapping": [{"role": "allowed-to-watch-movies", "folders": ["cc7df17e2f3509a4b5fc1d1ff0a6c4d0", "f137a2dd21bbc1b99aa5c0f6bf02a805"]}], "roleClaim": "realm_access", "oidScopes" : [""]}' "https://myjellyfin.example.com/sso/OID/Add/PROVIDER_NAME?api_key=API_KEY_HERE"`
+`curl -v -X POST -H "Content-Type: application/json" -d '{"oidEndpoint": "https://keycloak.example.com/realms/test", "oidClientId": "jellyfin-oid", "oidSecret": "short secret here", "enabled": true, "enableAuthorization": true, "enableAllFolders": false, "enabledFolders": [], "adminRoles": ["jellyfin-admin"], "roles": ["allowed-to-use-jellyfin"], "enableFolderRoles": true, "folderRoleMapping": [{"role": "allowed-to-watch-movies", "folders": ["cc7df17e2f3509a4b5fc1d1ff0a6c4d0", "f137a2dd21bbc1b99aa5c0f6bf02a805"]}], "roleClaim": "realm_access", "oidScopes" : [""]}' "https://myjellyfin.example.com/sso/OID/Add/PROVIDER_NAME?ApiKey=API_KEY_HERE"`
 
 The OpenID provider must have the following configuration (again, I am using Keycloak)
 
@@ -177,7 +195,7 @@ The API is all done from a base URL of `/sso/`
 
 #### Configuration
 
-These all require authorization. Append an API key to the end of the request: `curl "http://myjellyfin.example.com/sso/SAML/Get?api_key=API_KEY_HERE"`
+These all require authorization. Append an API key to the end of the request: `curl "http://myjellyfin.example.com/sso/SAML/Get?ApiKey=API_KEY_HERE"`
 
 - POST `SAML/Add/PROVIDER_NAME`: This adds or overwrites a configuration for SAML for the given provider name. It accepts JSON with the following keys and format:
   - `samlEndpoint`: string. The SAML endpoint.
@@ -217,7 +235,7 @@ These all require authorization. Append an API key to the end of the request: `c
 
 #### Configuration
 
-These all require authorization. Append an API key to the end of the request: `curl "http://myjellyfin.example.com/sso/OID/Get?api_key=9c6e5fae4ae145669e6b7a3942f813b7"`
+These all require authorization. Append an API key to the end of the request: `curl "http://myjellyfin.example.com/sso/OID/Get?ApiKey=9c6e5fae4ae145669e6b7a3942f813b7"`
 
 - POST `OID/Add/PROVIDERNAME`: This adds or overwrites a configuration for OpenID with a given provider name. It accepts JSON with the following keys and format:
   - `oidEndpoint`: string. The OpenID endpoint. Must have a `.well-known` path available.
@@ -254,7 +272,7 @@ These all require authorization. Append an API key to the end of the request: `c
 
 ### Misc
 
-- POST `Unregister/username`: This "unregisters" a user from SSO. A JSON-formatted string must be posted with the new authentication provider. To reset to the default provider, use `Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider` like so: `curl -X POST -H "Content-Type: application/json" -d '"Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider"' "https://myjellyfin.example.com/sso/Unregister/username?api_key=API_KEY`
+- POST `Unregister/username`: This "unregisters" a user from SSO. A JSON-formatted string must be posted with the new authentication provider. To reset to the default provider, use `Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider` like so: `curl -X POST -H "Content-Type: application/json" -d '"Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider"' "https://myjellyfin.example.com/sso/Unregister/username?ApiKey=API_KEY`
 
 ## Limitations
 
@@ -280,7 +298,7 @@ This project uses Nix flakes to manage development dependencies. Run `nix develo
 
 ## Building
 
-This is built with .NET 6.0. Build with `dotnet publish .` for the debug release in the `SSO-Auth` directory. Copy over the `IdentityModel.OidcClient.dll`, the `IdentityModel.dll` and the `SSO-Auth.dll` files in the `/bin/Debug/net6.0/publish` directory to a new folder in your Jellyfin configuration: `config/plugins/sso`.
+This branch is built with .NET 10. Run `./scripts/build-test-package.sh` from the repository root to produce a manually installable test ZIP under `artifacts/`.
 
 ### VSCode Workflow
 

@@ -118,11 +118,6 @@ public class SSOPlugin : BasePlugin<PluginConfiguration>, IPlugin, IHasWebPages
                 Name = "linking.css",
                 EmbeddedResourcePath = $"{GetType().Namespace}.Views.linking.css"
             },
-            new PluginPageInfo
-            {
-                Name = "jellyfin-apiClient.esm.min.js",
-                EmbeddedResourcePath = $"{GetType().Namespace}.Views.jellyfin-apiClient.esm.min.js"
-            },
         };
     }
 }

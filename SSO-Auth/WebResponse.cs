@@ -436,7 +436,7 @@ async function main() {
     }
     var deviceId = localStorage.getItem(""_deviceId2"");
     var appName = ""Jellyfin Web"";
-    var appVersion = ""10.8.0"";
+    var appVersion = ""12.0.0"";
     var deviceName = getDeviceName();
 
     var request = {deviceId, appName, appVersion, deviceName, data};
