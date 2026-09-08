@@ -9,8 +9,8 @@
     "versions": [
       {
         "changelog": "Fix OIDC requests on Jellyfin 12.\n\n- Use Jellyfin's default HTTP client.\n- Improve timeout diagnostics.",
-        "checksum": "",
-        "sourceUrl": "",
+        "checksum": "930140915c636fd8267ea1fa1da0ff1c",
+        "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/v5.0.0.1/sso-authentication_5.0.0.1.zip",
         "targetAbi": "12.0.0.0",
         "timestamp": "2026-09-08T19:28:04Z",
         "version": "5.0.0.1"
