@@ -1,7 +1,7 @@
 name: "SSO Authentication"
 guid: "505ce9d1-d916-42fa-86ca-673ef241d7df"
 imageUrl: "https://raw.githubusercontent.com/Buco7854/jellyfin-plugin-sso/main/img/logo.png"
-version: "5.0.0.0"
+version: "5.0.0.1"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 owner: "Buco7854"
@@ -15,6 +15,7 @@ artifacts:
   - "Duende.IdentityModel.OidcClient.dll"
   - "Duende.IdentityModel.dll"
 changelog: |
+  5.0.0.1: Use Jellyfin's default HTTP client for OpenID requests and improve timeout diagnostics.
   5.0.0.0: Add Jellyfin 12 support. Retarget to .NET 10 and Jellyfin 12, and replace legacy browser authorization headers used by self-service account linking.
   4.0.0.7: Fix and secure OIDC/SAML self-service account linking with authenticated, short-lived, single-use server-side transactions. Linking must now start from /SSOViews/linking; the legacy ?isLinking=true flow is no longer supported. Prevent identities linked to another Jellyfin account from being silently reassigned.
   4.0.0.6: Fix role-mapped permissions (admin, folders, Live TV) never being saved to the database on Jellyfin 10.11, which made them silently revert on every server restart (#367). PreserveAdminPermissions now defaults to false: admin status is synced strictly from roles unless explicitly opted in.

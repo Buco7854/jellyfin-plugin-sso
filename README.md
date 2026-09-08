@@ -92,12 +92,12 @@ Install the .NET 10 SDK and `zip`, then run this from the repository root:
 ./scripts/build-test-package.sh
 ```
 
-The script creates `artifacts/jellyfin-plugin-sso_5.0.0.0_jellyfin12.zip`. To test it:
+The script creates `artifacts/jellyfin-plugin-sso_5.0.0.1_jellyfin12.zip`. To test it:
 
 1. Stop Jellyfin and back up its data directory.
 2. Move the currently installed SSO plugin directory out of Jellyfin's `plugins` directory.
-3. Create a new directory named `SSO Authentication_5.0.0.0` under `plugins` and extract the ZIP into it.
-4. Start Jellyfin and confirm the log contains `Loaded plugin: SSO-Auth 5.0.0.0`.
+3. Create a new directory named `SSO Authentication_5.0.0.1` under `plugins` and extract the ZIP into it.
+4. Start Jellyfin and confirm the log contains `Loaded plugin: SSO-Auth 5.0.0.1`.
 5. Test an existing-user login, a new-user login, role mapping, and both OIDC/SAML account linking at `/SSOViews/linking` as applicable to your setup.
 
 Common plugin locations are `/config/plugins` in the official container and `/var/lib/jellyfin/plugins` in Linux package installations. Do not test against your only copy of production data; Jellyfin 12 database migrations are not reversible without a backup.
