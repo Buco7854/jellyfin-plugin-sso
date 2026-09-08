@@ -8,6 +8,14 @@
     "owner": "Buco7854",
     "versions": [
       {
+        "changelog": "Jellyfin 12 support.\n\n- Targets Jellyfin 12 and .NET 10.\n- Updates account linking for Jellyfin 12 authentication.\n- Prevents a white flash while the linking page theme loads.\n\nRequires Jellyfin 12.",
+        "checksum": "c9b672dd2a3f3b767db515844022489b",
+        "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/v5.0.0.0/sso-authentication_5.0.0.0.zip",
+        "targetAbi": "12.0.0.0",
+        "timestamp": "2026-09-08T10:35:33Z",
+        "version": "5.0.0.0"
+      },
+      {
         "changelog": "## SSO account-linking fix\r\n\r\nThis release fixes self-service OIDC and SAML account linking and strengthens the security of the linking process.\r\n\r\n### Changes\r\n\r\n- Fixed account linking from `/SSOViews/linking`.\r\n- Bound linking attempts to the currently authenticated Jellyfin user.\r\n- Added short-lived, single-use OIDC state and SAML RelayState.\r\n- Added stricter SAML request, recipient, expiry and signature validation.\r\n- Prevented identities linked to another Jellyfin account from being silently reassigned.\r\n- Preserved the current Jellyfin session after successful linking.\r\n- Reworked the linking page into a simple responsive Jellyfin-style settings page.\r\n\r\n### Breaking changes\r\n\r\n- Linking through `?isLinking=true` is no longer supported.\r\n- Linking must be started while signed in from `/SSOViews/linking`.\r\n- Custom clients using the old linking URL must move to the authenticated `StartLink` flow.\r\n- During SAML linking, the identity provider must return the original RelayState and valid `InResponseTo`, `Recipient` and `NotOnOrAfter` values.\r\n- Attempting to link an identity belonging to another Jellyfin user now returns a conflict instead of reassigning it.\r\n\r\nExisting provider configurations and identity mappings require no migration. Normal OIDC and SAML sign-in remains supported.\r\n\r\n## What's Changed\r\n* fix: secure SSO account linking by @Buco7854 in https://github.com/Buco7854/jellyfin-plugin-sso/pull/4\r\n\r\n**Full Changelog**: https://github.com/Buco7854/jellyfin-plugin-sso/compare/v4.0.0.6...v4.0.0.7",
         "checksum": "7881cffb0e1599fe778274ff6583ffb4",
         "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/v4.0.0.7/sso-authentication_4.0.0.7.zip",
