@@ -517,7 +517,7 @@ public class SSOController : ControllerBase
             options.Policy.Discovery.ValidateIssuerName = !config.DoNotValidateIssuerName;
             var oidcClient = new OidcClient(options);
             string discoveryEndpoint = GetDiscoveryEndpointForLog(options.Authority);
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Preparing OpenID login for provider {Provider}. Discovery endpoint: {DiscoveryEndpoint}",
                 provider,
                 discoveryEndpoint);
