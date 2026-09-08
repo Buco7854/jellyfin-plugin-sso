@@ -8,7 +8,7 @@
     "owner": "Buco7854",
     "versions": [
       {
-        "changelog": "## SSO account-linking fix\r\n\r\nThis release fixes self-service OIDC and SAML account linking and strengthens the security of the linking process.\r\n\r\n### Changes\r\n\r\n- Fixed account linking from `/SSOViews/linking`.\r\n- Bound linking attempts to the currently authenticated Jellyfin user.\r\n- Added short-lived, single-use OIDC state and SAML RelayState.\r\n- Added stricter SAML request, recipient, expiry and signature validation.\r\n- Prevented identities linked to another Jellyfin account from being silently reassigned.\r\n- Preserved the current Jellyfin session after successful linking.\r\n- Reworked the linking page into a simple responsive Jellyfin-style settings page.\r\n\r\n### Breaking changes\r\n\r\n- Linking through `?isLinking=true` is no longer supported.\r\n- Linking must be started while signed in from `/SSOViews/linking`.\r\n- Custom clients using the old linking URL must move to the authenticated `StartLink` flow.\r\n- During SAML linking, the identity provider must return the original RelayState and valid `InResponseTo`, `Recipient` and `NotOnOrAfter` values.\r\n- Attempting to link an identity belonging to another Jellyfin user now returns a conflict instead of reassigning it.\r\n\r\nExisting provider configurations and identity mappings require no migration. Normal OIDC and SAML sign-in remains supported.\r\n\r\n## What's Changed\r\n* fix: secure SSO account linking by @Buco7854 in https://github.com/Buco7854/jellyfin-plugin-sso/pull/4\r\n\r\n## New Contributors\r\n* @Buco7854 made their first contribution in https://github.com/Buco7854/jellyfin-plugin-sso/pull/4\r\n\r\n**Full Changelog**: https://github.com/Buco7854/jellyfin-plugin-sso/compare/v4.0.0.6...v4.0.0.7",
+        "changelog": "## SSO account-linking fix\r\n\r\nThis release fixes self-service OIDC and SAML account linking and strengthens the security of the linking process.\r\n\r\n### Changes\r\n\r\n- Fixed account linking from `/SSOViews/linking`.\r\n- Bound linking attempts to the currently authenticated Jellyfin user.\r\n- Added short-lived, single-use OIDC state and SAML RelayState.\r\n- Added stricter SAML request, recipient, expiry and signature validation.\r\n- Prevented identities linked to another Jellyfin account from being silently reassigned.\r\n- Preserved the current Jellyfin session after successful linking.\r\n- Reworked the linking page into a simple responsive Jellyfin-style settings page.\r\n\r\n### Breaking changes\r\n\r\n- Linking through `?isLinking=true` is no longer supported.\r\n- Linking must be started while signed in from `/SSOViews/linking`.\r\n- Custom clients using the old linking URL must move to the authenticated `StartLink` flow.\r\n- During SAML linking, the identity provider must return the original RelayState and valid `InResponseTo`, `Recipient` and `NotOnOrAfter` values.\r\n- Attempting to link an identity belonging to another Jellyfin user now returns a conflict instead of reassigning it.\r\n\r\nExisting provider configurations and identity mappings require no migration. Normal OIDC and SAML sign-in remains supported.\r\n\r\n## What's Changed\r\n* fix: secure SSO account linking by @Buco7854 in https://github.com/Buco7854/jellyfin-plugin-sso/pull/4\r\n\r\n**Full Changelog**: https://github.com/Buco7854/jellyfin-plugin-sso/compare/v4.0.0.6...v4.0.0.7",
         "checksum": "7881cffb0e1599fe778274ff6583ffb4",
         "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/v4.0.0.7/sso-authentication_4.0.0.7.zip",
         "targetAbi": "10.11.0.0",
@@ -33,9 +33,9 @@
       },
       {
         "changelog": "Nightly build\n",
-        "checksum": "6e8dccc0092cfac71ff85ce6582fcb1d",
+        "checksum": "72719e28e878e6ecab992a8ce0ee3b66",
         "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/nightly/sso-authentication_0.0.0.9000.zip",
-        "targetAbi": "10.11.0.0",
+        "targetAbi": "12.0.0.0",
         "timestamp": "2026-05-25T02:52:48Z",
         "version": "0.0.0.9000"
       }
