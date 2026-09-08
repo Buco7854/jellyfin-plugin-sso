@@ -8,7 +8,15 @@
     "owner": "Buco7854",
     "versions": [
       {
-        "changelog": "Jellyfin 12 support.\n\n- Targets Jellyfin 12 and .NET 10.\n- Updates account linking for Jellyfin 12 authentication.\n- Prevents a white flash while the linking page theme loads.\n\nRequires Jellyfin 12.",
+        "changelog": "Fix OIDC requests on Jellyfin 12.\n\n- Use Jellyfin's default HTTP client.\n- Improve timeout diagnostics.",
+        "checksum": "",
+        "sourceUrl": "",
+        "targetAbi": "12.0.0.0",
+        "timestamp": "2026-09-08T19:28:04Z",
+        "version": "5.0.0.1"
+      },
+      {
+        "changelog": "## WARNING: Requires Jellyfin 12\r\n\r\nJellyfin 12 support.\r\n\r\n- Targets Jellyfin 12 and .NET 10.\r\n- Updates account linking for Jellyfin 12 authentication.\r\n- Prevents a white flash while the linking page theme loads.\r\n\r\nRequires Jellyfin 12.",
         "checksum": "c9b672dd2a3f3b767db515844022489b",
         "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/v5.0.0.0/sso-authentication_5.0.0.0.zip",
         "targetAbi": "12.0.0.0",
@@ -41,7 +49,7 @@
       },
       {
         "changelog": "Nightly build\n",
-        "checksum": "72719e28e878e6ecab992a8ce0ee3b66",
+        "checksum": "8016319698414888cd78fbb6cb8081d5",
         "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/nightly/sso-authentication_0.0.0.9000.zip",
         "targetAbi": "12.0.0.0",
         "timestamp": "2026-05-25T02:52:48Z",
