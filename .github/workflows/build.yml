@@ -19,6 +19,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
+      - name: Validate release metadata
+        run: ./scripts/validate-release-metadata.sh
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v1
         with:

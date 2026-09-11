@@ -3,8 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.SSO_Auth</RootNamespace>
-    <AssemblyVersion>5.0.0.1</AssemblyVersion>
-    <FileVersion>5.0.0.1</FileVersion>
+    <AssemblyVersion>5.0.0.2</AssemblyVersion>
+    <FileVersion>5.0.0.2</FileVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
