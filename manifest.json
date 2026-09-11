@@ -8,6 +8,14 @@
     "owner": "Buco7854",
     "versions": [
       {
+        "changelog": "Fix plugin upgrades leaving older versions active.\n\n- Align the package and runtime plugin identity.\n- Let Jellyfin remove superseded versions after the normal restart.\n- Add CI checks to prevent release metadata drift.\n\nFixes #9.",
+        "checksum": "82e6eec7d8ffc384d5dc6812c666c791",
+        "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/v5.0.0.2/sso-auth_5.0.0.2.zip",
+        "targetAbi": "12.0.0.0",
+        "timestamp": "2026-09-11T01:17:54Z",
+        "version": "5.0.0.2"
+      },
+      {
         "changelog": "Fix OIDC requests on Jellyfin 12.\n\n- Use Jellyfin's default HTTP client.\n- Improve timeout diagnostics.",
         "checksum": "930140915c636fd8267ea1fa1da0ff1c",
         "sourceUrl": "https://github.com/Buco7854/jellyfin-plugin-sso/releases/download/v5.0.0.1/sso-authentication_5.0.0.1.zip",
