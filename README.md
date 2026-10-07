@@ -34,7 +34,7 @@ Existing users may link new SSO accounts, or remove existing links using self-se
 
 This is 100% alpha software! PRs are welcome to improve the code.
 
-~~There is NO admin configuration! You must use the API to configure the program!~~ Added by [strazto](https://github.com/strazto) in PR [#18](https://github.com/Buco7854/jellyfin-plugin-sso/pull/18) and [#27](https://github.com/Buco7854/jellyfin-plugin-sso/pull/27).
+~~There is NO admin configuration! You must use the API to configure the program!~~ Added by [strazto](https://github.com/strazto) in PR [#18](https://github.com/9p4/jellyfin-plugin-sso/pull/18) and [#27](https://github.com/9p4/jellyfin-plugin-sso/pull/27).
 
 **This branch targets Jellyfin 12.0 and requires .NET 10. Use an older plugin release for Jellyfin 10.11 or earlier. The sign-in flow is available in the Web UI and clients supporting [Quick Connect](https://jellyfin.org/docs/general/server/quick-connect).**
 
@@ -140,7 +140,7 @@ a.raised.emby-button {
 
 ![screenshot of the configuration page with the same code](img/custom-button.png)
 
-For more information, refer to [issue #16](https://github.com/Buco7854/jellyfin-plugin-sso/issues/16).
+For more information, refer to [issue #16](https://github.com/9p4/jellyfin-plugin-sso/issues/16).
 
 ### SAML
 
@@ -245,7 +245,7 @@ These all require authorization. Append an API key to the end of the request: `c
   - `enableAuthorization`: boolean: Determines if the plugin sets permissions for the user. If false, the user will start with no permissions and an administrator will add permissions. If disabled, then the permissions of users will not be modified and the Jellyfin defaults will be used instead.
   - `enableAllFolders`: boolean. Determines if the client logging in is allowed access to all folders.
   - `enabledFolders`: array of strings. If `enableAllFolders` is set to false, then this will be used to determine what folders the users who log in through this provider are allowed to use.
-  - `roles`: array of strings. This validates the OpenID response against the claim set in `roleClaim`. If a user has any of these roles, then the user is authenticated. Leave blank to disable role checking. This currently only works for Keycloak (to my knowledge).
+  - `roles`: array of strings. This validates the OpenID response against the claim set in `roleClaim`. If a user has any of these roles, then the user is authenticated. Leave blank to disable role checking.
   - `adminRoles`: array of strings. This uses the OpenID response against the claim set in `roleClaim`. If a user has any of these roles, then the user is an admin. Leave blank to disable (default is to not enable admin permissions).
   - `preserveAdminPermissions`: boolean. When true, the plugin will only ever elevate users to administrator based on roles and will never revoke the administrator flag from an account that already has it. Defaults to `false`: admin status is synced strictly from the OIDC response on every login.
   - `enableFolderRoles`: boolean. Determines if role-based folder access should be used.
@@ -257,7 +257,7 @@ These all require authorization. Append an API key to the end of the request: `c
   - `enableLiveTvManagement`: boolean. Whether to allow Live TV management by default. This applies even if `enableLiveTvRoles` is enabled.
   - `roleClaim`: string. This is the value in the OpenID response to check for roles. For Keycloak, it is `realm_access.roles` by default. The first element is the claim type, the subsequent values are to parse the JSON of the claim value. Use a "\\." to denote a literal ".". This expects a list of strings from the OIDC server.
   - `oidScopes` : array of strings. Each contains an additional scope name to include in the OIDC request.
-    - For some OIDC providers (For example, [authelia](https://github.com/Buco7854/jellyfin-plugin-sso/issues/23#issuecomment-1112237616)), additional scopes may be required in order to validate group membership in role claim.
+    - For some OIDC providers (For example, [authelia](https://github.com/9p4/jellyfin-plugin-sso/issues/23#issuecomment-1112237616)), additional scopes may be required in order to validate group membership in role claim.
     - Leave empty to only request the default scopes.
   - `defaultProvider`: string. The set provider then gets assigned to the user after they have logged in. If it is not set, nothing is changed. With this, a user can login with SSO but is still able to log in via other providers later. See the `Unregister` endpoint.
   - `defaultUsernameClaim`: string. The provider will use the claim to create the users' usernames. If not set, it fallbacks to `preferred_username`.
@@ -282,13 +282,13 @@ Logging in with an SSO account that has the same username as an existing Jellyfi
 
 ~~There is no GUI to sign in. You have to make it yourself! The buttons should redirect to something like this: [https://myjellyfin.example.com/sso/SAML/start/clientid](https://myjellyfin.example.com/sso/SAML/start/clientid) replacing `clientid` with the provider client ID and `SAML` with the auth scheme (either `SAML` or `OID`).~~
 
-~~Furthermore, there is no functional admin page (yet). PRs for this are welcome. In the meantime, you have to interact with the API to add or remove configurations.~~ Added by [strazto](https://github.com/strazto) in PR [#18](https://github.com/Buco7854/jellyfin-plugin-sso/pull/18) and [#27](https://github.com/Buco7854/jellyfin-plugin-sso/pull/27).
+~~Furthermore, there is no functional admin page (yet). PRs for this are welcome. In the meantime, you have to interact with the API to add or remove configurations.~~ Added by [strazto](https://github.com/strazto) in PR [#18](https://github.com/9p4/jellyfin-plugin-sso/pull/18) and [#27](https://github.com/9p4/jellyfin-plugin-sso/pull/27).
 
 There is also no logout callback. Logging out of Jellyfin will log you out of Jellyfin only, instead of the SSO provider as well.
 
-~~This only supports Jellyfin on its own domain (for now). This is because I'm using string concatenation for generating some URLs. A PR is welcome to patch this.~~ Fixed in [PR #1](https://github.com/Buco7854/jellyfin-plugin-sso/pull/1).
+~~This only supports Jellyfin on its own domain (for now). This is because I'm using string concatenation for generating some URLs. A PR is welcome to patch this.~~ Fixed in [PR #1](https://github.com/9p4/jellyfin-plugin-sso/pull/1).
 
-**This only works on the web UI**. ~~The user must open the Jellyfin web UI BEFORE using the SSO program to populate some values in the localStorage.~~ Fixed by implementing a comment by [Pfuenzle](https://github.com/Pfuenzle) in [Issue #5](https://github.com/Buco7854/jellyfin-plugin-sso/issues/5#issuecomment-1041864820).
+**This only works on the web UI**. ~~The user must open the Jellyfin web UI BEFORE using the SSO program to populate some values in the localStorage.~~ Fixed by implementing a comment by [Pfuenzle](https://github.com/Pfuenzle) in [Issue #5](https://github.com/9p4/jellyfin-plugin-sso/issues/5#issuecomment-1041864820).
 
 # Contributing
 

@@ -2,7 +2,7 @@
 
 This plugin has been tested to work against various providers, though not all providers provide support for all of this plugins' features.
 
-❗ Before you proceed, make sure you have another admin account if you are going to link SSO provider to the only admin account on the server, permission might get overwritten (see [#212](https://github.com/Buco7854/jellyfin-plugin-sso/issues/212)).
+❗ If you plan to link SSO to your only Jellyfin administrator account, create another administrator account first. SSO can change account permissions (see [the original issue #212](https://github.com/9p4/jellyfin-plugin-sso/issues/212)).
 
 ## TOC / Tested Providers:
 
@@ -22,9 +22,9 @@ This section is broken into providers that support Role-Based Access Control (RB
   - ❗ Usernames are numeric
   - ❗ Requires disabling validating OpenID endpoints
 
-## General Options, when RBAC is supported
+## Common RBAC settings
 
-For any provider that supports RBAC, we can configure it as we see fit:
+These access settings apply to providers that supply roles or groups. For OIDC, configure them in the plugin's **SSO Settings** page under **Add / Update Provider Configuration**. The UI does not support SAML provider configuration; use the [SAML configuration API](README.md#saml-1) for SAML. The provider examples below focus on connection and claim settings, so also set these access options as needed. Replace the example role names with the exact values sent by your provider. In the OIDC UI, enter **Roles** and **Admin Roles** one value per line. Leave **Roles** empty if any authenticated user should be allowed to sign in.
 
 ```yaml
 Enabled: true
@@ -96,68 +96,40 @@ authelia:
 
 ## authentik
 
-To begin with, we must set up an OIDC provider + application in authentik. Refer to the official documentation for detailed instruction.
+Create an OAuth2/OIDC provider and application in authentik, following the [official authentik setup guide](https://docs.goauthentik.io/add-secure-apps/providers/oauth2/create-oauth2-provider/). The last segment of the redirect URI must match **Name of OpenID Provider** in Jellyfin; this example uses `authentik`. Keep another Jellyfin administrator account available while testing RBAC settings.
 
 ### authentik's Config
 
-authentik supports RBAC, but is slightly more complicated to configure than Authelia, as we need to configure a custom scope binding to include in the OIDC response.
-
-To do this, we:
-
-- create a **Custom Property Mapping**
-
-  ![image](img/authentik-config-01.jpg)
-
-- Create a **Scope Mapping**
-
-  ![image](img/authentik-config-02.jpg)
-
-- Assign the following attributes:
-
-  ![image](img/authentik-config-03.jpg)
-
-  ```yaml
-  # A nice, human readable name
-  name: Group Membership
-  # The name of the scope a client must request to get access to a user's groups
-  Scope Name: groups
-  # A description of what is being requested to show to a user
-  Description: See Which Groups you belong to
-  ```
-
-- For the **Expression** field, use the following code:
-  ```python
-  return [group.name for group in user.ak_groups.all()]
-  ```
-
-Now we can add this property mapping to authentik's Jellyfin OAuth provider:
-
-- Navigate to `Applications/providers`
-
-  ![image](img/authentik-config-04.jpg)
-
-- Edit / Update your Jellyfin OAuth provider
-- Verify your **"Redirect URIs/Origins (RegEx)"** follows the format: `https://domain.tld/sso/OID/redirect/Authentik`.
-- Under **"Advanced Protocol Settings"**, add the **Group Membership** Scope
-
-  ![image](img/authentik-config-05.jpg)
+1. In the authentik OAuth2/OIDC provider, use a confidential client with a client secret. Set an exact **Redirect URI** to `https://jellyfin.example.com/sso/OID/redirect/authentik`, replacing the domain and `authentik` with your Jellyfin URL and chosen provider name.
+2. Make sure the provider has authentik's default `openid` and `profile` scope mappings. The default [`profile` mapping](https://docs.goauthentik.io/add-secure-apps/providers/oauth2/#default-scopes) supplies the `preferred_username` and `groups` claims. Jellyfin requests both scopes automatically, so the standard setup needs no custom scope mapping.
+3. Copy the provider's client ID and client secret for the Jellyfin settings below. With authentik's default per-provider issuer mode, the issuer URL uses the application slug, for example `https://authentik.example.com/application/o/jellyfin/`.
 
 ### Jellyfin's Config
 
-On Jellyfin's end, we need to configure an authentik provider as follows:
+In Jellyfin, open the SSO plugin settings from the dashboard and fill in **Add / Update Provider Configuration**:
 
-In order to test group membership, we need to request authentik's OIDC scope `groups`, which we will use to check user roles.
+| UI field                                | Value for this example                                                                                                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Name of OpenID Provider                 | `authentik` — must match the last part of the redirect URI exactly.                                                                                                |
+| OpenID Endpoint                         | `https://authentik.example.com/application/o/jellyfin/` — replace `jellyfin` with your authentik application slug when using the default per-provider issuer mode. |
+| OpenID Client ID / OpenID client secret | The values from the authentik OAuth2/OIDC provider.                                                                                                                |
+| Enabled                                 | On.                                                                                                                                                                |
+| Enable Authorization by Plugin          | On if Jellyfin should set user permissions from provider roles.                                                                                                    |
+| Role Claim                              | `groups` — the claim containing authentik group names.                                                                                                             |
+| Roles                                   | Optional: one authentik group name per line. When set, users must match at least one group to sign in.                                                             |
+| Admin Roles                             | Optional: one authentik group name per line to grant Jellyfin administrator access when plugin authorization is enabled.                                           |
+| Request Additional Scopes               | Leave blank with authentik's default `profile` mapping. The plugin already requests `openid profile`.                                                              |
+| Do Not Load Profile Information         | Off, so the plugin reads group claims from authentik's UserInfo endpoint.                                                                                          |
 
-```yaml
-authentik:
-  OidEndpoint: https://authentik.example.com/application/o/jellyfin
-  OidClientId: <same-as-in-authentik>
-  OidSecret: <redacted>
-  RoleClaim: groups
-  OidScopes: ["groups"]
+Choose folder access using **Enable All Folders**, **Enabled Folders**, or **Enable Folder Roles** as needed; see [common RBAC settings](#common-rbac-settings). Group names in **Roles** and **Admin Roles** must match authentik's `groups` claim exactly, including capitalization. Save the provider and restart Jellyfin for configuration changes to take effect.
+
+If your authentik provider does not return `groups` through its `profile` mapping, create an [OAuth2/OIDC scope mapping](https://docs.goauthentik.io/add-secure-apps/providers/property-mappings/) with **Scope name** set to `groups` and this expression. Assign the mapping to the authentik provider, then enter `groups` on its own line in Jellyfin's **Request Additional Scopes** field:
+
+```python
+return {"groups": [group.name for group in request.user.groups.all()]}
 ```
 
-If you recieve the error `Error processing request.` from Jellyfin when attempting to login and the Jellyfin logs show `Error loading discovery document: Endpoint belongs to different authority` try setting `Do not validate endpoints` in the plugin settings.
+If Jellyfin reports `Error loading discovery document: Endpoint belongs to different authority`, check that the **OpenID Endpoint** matches the authentik issuer and that the discovery document's endpoint URLs are reachable from Jellyfin. If authentik intentionally advertises endpoints on a different authority, **Do Not Validate OpenID Endpoints** in the plugin settings bypasses this check.
 
 ## Keycloak OIDC
 
